@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::mpsc;
 
 use egui::{Color32, ColorImage, Context, Pos2, Rect, RichText, Sense, Stroke, TextureHandle,
            TextureOptions, Vec2};
@@ -8,6 +9,13 @@ use crate::dither::{Algorithm, BayerSize, DitherParams};
 use crate::effects::{eval_curve, Effect, EffectKind, EFFECT_NAMES};
 use crate::halftone::{DotShape, HalftoneParams};
 use crate::palette::{extract_palette, load_gpl, save_gpl, Palette, PaletteKind};
+
+// ── Background render output ──────────────────────────────────────────────────
+
+struct RenderOutput {
+    preprocessed: DynamicImage,
+    dithered: DynamicImage,
+}
 
 // ── View mode ─────────────────────────────────────────────────────────────────
 
@@ -57,6 +65,9 @@ pub struct DitheringApp {
     pre_dirty: bool,
     dither_dirty: bool,
 
+    // Background render
+    render_rx: Option<mpsc::Receiver<RenderOutput>>,
+
     // View state
     zoom: f32,
     compare_pos: f32,   // 0.0–1.0, position of comparison divider
@@ -84,6 +95,7 @@ impl Default for DitheringApp {
             halftone_params: HalftoneParams::default(),
             pre_dirty: false,
             dither_dirty: false,
+            render_rx: None,
             zoom: 1.0,
             compare_pos: 0.5,
             export_scale: 1,
@@ -164,30 +176,58 @@ impl DitheringApp {
         }
     }
 
-    // ── Recompute ─────────────────────────────────────────────────────────────
+    // ── Background render ─────────────────────────────────────────────────────
 
-    fn recompute(&mut self, ctx: &Context) {
+    fn kick_render(&mut self, ctx: &Context) {
         let src = match &self.original { Some(i) => i.clone(), None => return };
 
-        if self.pre_dirty {
-            self.preprocessed = Some(crate::effects::apply_effects(&src, &self.effects));
-            self.pre_dirty = false;
-            self.dither_dirty = true;
-        }
+        let need_pre = self.pre_dirty;
+        let pre_base = self.preprocessed.clone();
+        let effects = self.effects.clone();
+        let mode = self.mode.clone();
+        let dither_params = self.dither_params.clone();
+        let halftone_params = self.halftone_params.clone();
+        let palette = self.resolved_palette();
 
-        if self.dither_dirty {
-            if let Some(ref pre) = self.preprocessed {
-                let result = match self.mode {
-                    AppMode::Halftone => crate::halftone::apply_halftone(pre, &self.halftone_params),
-                    AppMode::Dither => {
-                        let palette = self.resolved_palette();
-                        crate::dither::apply_dither(pre, &self.dither_params, &palette)
-                    }
-                };
-                self.dithered_tex = Some(dynamic_to_texture(ctx, "dithered", &result));
-                self.dithered = Some(result);
-            }
-            self.dither_dirty = false;
+        self.pre_dirty = false;
+        self.dither_dirty = false;
+
+        let (tx, rx) = mpsc::channel();
+        self.render_rx = Some(rx); // drops any previous in-flight receiver
+
+        let ctx2 = ctx.clone();
+        std::thread::spawn(move || {
+            let pre = if need_pre {
+                crate::effects::apply_effects(&src, &effects)
+            } else {
+                pre_base.unwrap_or_else(|| src.clone())
+            };
+
+            let dithered = match mode {
+                AppMode::Halftone => crate::halftone::apply_halftone(&pre, &halftone_params),
+                AppMode::Dither   => crate::dither::apply_dither(&pre, &dither_params, &palette),
+            };
+
+            let _ = tx.send(RenderOutput { preprocessed: pre, dithered });
+            ctx2.request_repaint();
+        });
+    }
+
+    fn poll_render(&mut self, ctx: &Context) {
+        let output = match self.render_rx {
+            Some(ref rx) => match rx.try_recv() {
+                Ok(o) => o,
+                Err(_) => return,
+            },
+            None => return,
+        };
+        self.render_rx = None;
+        self.dithered_tex = Some(dynamic_to_texture(ctx, "dithered", &output.dithered));
+        self.preprocessed = Some(output.preprocessed);
+        self.dithered = Some(output.dithered);
+        // If settings changed while we were rendering, kick another pass
+        if (self.pre_dirty || self.dither_dirty) && self.original.is_some() {
+            self.kick_render(ctx);
         }
     }
 
@@ -692,8 +732,9 @@ impl eframe::App for DitheringApp {
             self.load_image(path, ctx);
         }
 
-        if (self.pre_dirty || self.dither_dirty) && self.original.is_some() {
-            self.recompute(ctx);
+        self.poll_render(ctx);
+        if (self.pre_dirty || self.dither_dirty) && self.original.is_some() && self.render_rx.is_none() {
+            self.kick_render(ctx);
         }
 
         // Top bar
@@ -722,6 +763,9 @@ impl eframe::App for DitheringApp {
                 }
                 ui.separator();
                 ui.label(RichText::new(&self.status).weak());
+                if self.render_rx.is_some() {
+                    ui.label(RichText::new("rendering…").weak().italics());
+                }
             });
         });
 
