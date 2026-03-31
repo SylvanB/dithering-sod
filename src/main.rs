@@ -1,3 +1,8 @@
+//! Dithering Tool — desktop image processing app.
+//!
+//! Entry point. Sets up the native window via [`eframe`] and launches
+//! [`app::DitheringApp`].
+
 mod app;
 mod dither;
 mod effects;

@@ -1,6 +1,14 @@
+//! Palette definitions, median-cut extraction, and GIMP `.gpl` I/O.
+//!
+//! A [`Palette`] is a list of RGB colors in 0.0–1.0 float range. The
+//! [`PaletteKind`] enum names every built-in palette and also the two
+//! dynamic variants (`Extracted` and `Custom`) that are managed by app state.
+
 use image::DynamicImage;
 
-/// All palette colors are stored as [r, g, b] in 0.0–1.0 float range.
+/// A set of RGB colors used as the quantization target during dithering.
+///
+/// All color components are stored in 0.0–1.0 float range.
 #[derive(Clone, PartialEq, Debug)]
 pub struct Palette {
     pub name: &'static str,
@@ -50,6 +58,7 @@ impl Palette {
 
 // ── Built-in palette definitions ─────────────────────────────────────────────
 
+/// Named palette presets available in the UI.
 #[derive(Clone, PartialEq, Debug)]
 pub enum PaletteKind {
     GrayRamp2,

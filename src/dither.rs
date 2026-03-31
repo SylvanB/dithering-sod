@@ -1,3 +1,15 @@
+//! Dithering algorithms.
+//!
+//! The public entry point is [`apply_dither`], which dispatches to one of:
+//! - **Threshold** — hard cutoff with adjustable bias
+//! - **Ordered (Bayer)** — threshold matrix dithering at 2×2, 4×4, 8×8, or 16×16
+//! - **White Noise** — deterministic per-pixel hash noise
+//! - **Error diffusion** — a family of kernels (Floyd-Steinberg, Atkinson, etc.)
+//!   with optional serpentine scanning
+//!
+//! All algorithms quantize each pixel to the nearest color in the supplied
+//! [`Palette`] using a perceptually-weighted Euclidean distance.
+
 use image::{DynamicImage, RgbImage};
 use crate::palette::Palette;
 
@@ -51,6 +63,7 @@ const BAYER_16: [[f32; 16]; 16] = [
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+/// Dithering algorithm to apply.
 #[derive(Clone, PartialEq, Debug)]
 pub enum Algorithm {
     Threshold,
@@ -126,6 +139,7 @@ impl Algorithm {
     }
 }
 
+/// Ordered-dithering matrix size.
 #[derive(Clone, PartialEq, Debug)]
 pub enum BayerSize {
     B2,
@@ -148,13 +162,18 @@ impl BayerSize {
     }
 }
 
+/// Parameters controlling which dithering algorithm is applied and how.
 #[derive(Clone, PartialEq, Debug)]
 pub struct DitherParams {
     pub algorithm: Algorithm,
-    pub threshold: f32,      // for Threshold
+    /// Bias applied before quantization in Threshold mode (0.0 = midpoint).
+    pub threshold: f32,
     pub bayer_size: BayerSize,
+    /// Amplitude of the Bayer offset; 1.0 fills the full ±0.5 range.
     pub bayer_spread: f32,
-    pub noise_scale: f32,    // for White Noise
+    /// Amplitude of the white-noise offset; 1.0 fills the full ±0.5 range.
+    pub noise_scale: f32,
+    /// Alternate scan direction each row to reduce directional banding (error diffusion only).
     pub serpentine: bool,
 }
 
@@ -189,6 +208,8 @@ fn pixel_hash(x: usize, y: usize) -> f32 {
 
 // ── Main entry point ─────────────────────────────────────────────────────────
 
+/// Apply the dithering algorithm described by `params` to `src`, quantizing
+/// each output pixel to the nearest color in `palette`.
 pub fn apply_dither(src: &DynamicImage, params: &DitherParams, palette: &Palette) -> DynamicImage {
     let rgb = src.to_rgb8();
     let (width, height) = rgb.dimensions();
@@ -307,6 +328,8 @@ fn dither_white_noise(
 
 // ── Error diffusion kernels ───────────────────────────────────────────────────
 
+/// An error-diffusion kernel defined as a list of `(dx, dy, weight)` offsets
+/// relative to the current pixel. Weights should sum to 1.0.
 struct DiffusionKernel {
     entries: &'static [(i32, i32, f32)],
 }

@@ -1,7 +1,14 @@
+//! Pre-processing effects pipeline.
+//!
+//! Effects are stacked in a [`Vec<Effect>`] and applied in order by
+//! [`apply_effects`] before dithering or halftone rendering. Each [`Effect`]
+//! wraps an [`EffectKind`] with an enabled toggle and a UI open/collapsed flag.
+
 use image::{DynamicImage, RgbImage};
 
 // ── Effect types ──────────────────────────────────────────────────────────────
 
+/// The type and parameters of a single effect in the stack.
 #[derive(Clone, PartialEq, Debug)]
 pub enum EffectKind {
     BrightnessContrastGamma {
@@ -71,11 +78,13 @@ pub const EFFECT_NAMES: &[(&str, &str)] = &[
 
 // ── Effect entry (data + UI state) ────────────────────────────────────────────
 
+/// A single entry in the effects stack.
 #[derive(Clone, Debug)]
 pub struct Effect {
     pub kind: EffectKind,
     pub enabled: bool,
-    pub open: bool, // expanded in the stack UI
+    /// Whether the effect's UI panel is expanded in the stack.
+    pub open: bool,
 }
 
 impl Effect {
@@ -86,6 +95,7 @@ impl Effect {
 
 // ── Pipeline ──────────────────────────────────────────────────────────────────
 
+/// Apply every enabled effect in `effects` to `src` in order.
 pub fn apply_effects(src: &DynamicImage, effects: &[Effect]) -> DynamicImage {
     let mut img = src.clone();
     for e in effects {

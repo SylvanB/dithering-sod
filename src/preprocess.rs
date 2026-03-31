@@ -1,3 +1,9 @@
+//! Legacy pre-processing module.
+//!
+//! This module predates the composable [`crate::effects`] pipeline and is no
+//! longer used by the app. It is kept to avoid breaking any external callers
+//! and is allowed to be dead code.
+
 #![allow(dead_code)]
 use image::{DynamicImage, RgbImage};
 

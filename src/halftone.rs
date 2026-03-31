@@ -1,5 +1,17 @@
+//! Halftone rendering.
+//!
+//! Converts an image into a halftone screen by sampling average tone in a
+//! rotated grid, then drawing a scaled dot at each grid center whose size
+//! is proportional to the local tone value.
+//!
+//! Two modes are supported:
+//! - **Grayscale** — single screen at a configurable angle
+//! - **CMYK** — four screens at standard print angles (C=105°, M=75°, Y=90°, K=45°)
+//!   composited subtractively onto a white background
+
 use image::{DynamicImage, RgbImage};
 
+/// Shape of each halftone dot.
 #[derive(Clone, PartialEq, Debug)]
 pub enum DotShape {
     Circle,
@@ -22,14 +34,21 @@ impl DotShape {
     }
 }
 
+/// Parameters for halftone rendering.
 #[derive(Clone, PartialEq, Debug)]
 pub struct HalftoneParams {
+    /// Grid cell size in pixels (controls dot spacing / "lpi").
     pub cell_size: f32,
     pub dot_shape: DotShape,
-    pub angle: f32,      // degrees, used for Gray mode
-    pub dot_scale: f32,  // multiplier on the dot radius (1.0 = fills cell, >1.0 overlaps)
-    pub invert: bool,    // white dots on black vs black on white
-    pub cmyk: bool,      // CMYK 4-screen vs grayscale single screen
+    /// Screen angle in degrees; only used in grayscale mode.
+    pub angle: f32,
+    /// Scales the dot radius relative to the cell. 1.0 means the dot just
+    /// fills the cell at 100% coverage; values >1.0 allow dots to overlap.
+    pub dot_scale: f32,
+    /// If true, render white dots on black instead of black on white.
+    pub invert: bool,
+    /// Use four CMYK screens instead of a single grayscale screen.
+    pub cmyk: bool,
 }
 
 impl Default for HalftoneParams {
@@ -47,6 +66,7 @@ impl Default for HalftoneParams {
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
+/// Render `src` as a halftone image according to `params`.
 pub fn apply_halftone(src: &DynamicImage, params: &HalftoneParams) -> DynamicImage {
     if params.cmyk {
         halftone_cmyk(src, params)

@@ -1,3 +1,22 @@
+//! Main application state and UI.
+//!
+//! [`DitheringApp`] implements [`eframe::App`] and owns all persistent state:
+//! the loaded image, effects stack, dither/halftone parameters, palette
+//! selection, and the background render channel.
+//!
+//! # Render loop
+//!
+//! Image processing is intentionally kept off the UI thread to prevent
+//! freezing. When parameters change a dirty flag is set (`pre_dirty` or
+//! `dither_dirty`). At the start of each [`eframe::App::update`] call:
+//!
+//! 1. [`DitheringApp::poll_render`] checks the `mpsc` channel for a completed
+//!    [`RenderOutput`] and, if present, updates the displayed textures.
+//! 2. If dirty and no render is already running, [`DitheringApp::kick_render`]
+//!    clones the current parameters and spawns a background thread.
+//! 3. The background thread sends its result back through the channel and
+//!    calls [`egui::Context::request_repaint`] to wake the UI.
+
 use std::path::PathBuf;
 use std::sync::mpsc;
 
@@ -12,6 +31,7 @@ use crate::palette::{extract_palette, load_gpl, save_gpl, Palette, PaletteKind};
 
 // ── Background render output ──────────────────────────────────────────────────
 
+/// Images produced by a background render pass.
 struct RenderOutput {
     preprocessed: DynamicImage,
     dithered: DynamicImage,
@@ -19,15 +39,20 @@ struct RenderOutput {
 
 // ── View mode ─────────────────────────────────────────────────────────────────
 
+/// How the canvas area displays the before/after images.
 #[derive(Clone, PartialEq, Debug)]
 pub enum ViewMode {
-    Split,   // side-by-side
-    Compare, // draggable slider
-    Output,  // output only
+    /// Original and output shown side-by-side.
+    Split,
+    /// Single image with a draggable divider: left = original, right = output.
+    Compare,
+    /// Output image only.
+    Output,
 }
 
 // ── App mode ──────────────────────────────────────────────────────────────────
 
+/// Top-level processing mode.
 #[derive(Clone, PartialEq, Debug)]
 pub enum AppMode {
     Dither,
@@ -36,46 +61,66 @@ pub enum AppMode {
 
 // ── App state ─────────────────────────────────────────────────────────────────
 
+/// Root application state. One instance is created at startup and lives for
+/// the entire session.
 pub struct DitheringApp {
+    // ── Images ────────────────────────────────────────────────────────────────
+    /// The raw image as loaded from disk (or dropped in). Never modified.
     original: Option<DynamicImage>,
+    /// `original` after the effects stack has been applied; the input to dither/halftone.
     preprocessed: Option<DynamicImage>,
+    /// Final output after dithering or halftone rendering.
     dithered: Option<DynamicImage>,
 
+    // ── GPU textures (uploaded lazily) ────────────────────────────────────────
     original_tex: Option<TextureHandle>,
     dithered_tex: Option<TextureHandle>,
 
-    // Modes
+    // ── Modes ─────────────────────────────────────────────────────────────────
     mode: AppMode,
     view_mode: ViewMode,
 
-    // Effects stack
+    // ── Effects stack ─────────────────────────────────────────────────────────
     effects: Vec<Effect>,
+    /// Index into `EFFECT_NAMES` for the "Add effect" combo box.
     add_effect_choice: usize,
 
-    // Dither params
+    // ── Dither params ─────────────────────────────────────────────────────────
     dither_params: DitherParams,
     palette_kind: PaletteKind,
-    user_palette: Vec<[f32; 3]>, // backing store for Extracted + Custom
+    /// Colors backing both `Extracted` (filled by median-cut) and `Custom`
+    /// (edited by the user) palette kinds.
+    user_palette: Vec<[f32; 3]>,
+    /// Target color count for median-cut extraction.
     extract_num_colors: usize,
 
-    // Halftone params
+    // ── Halftone params ───────────────────────────────────────────────────────
     halftone_params: HalftoneParams,
 
-    // Input scale (0 = full size, otherwise max dimension in pixels)
+    // ── Input downscaling ─────────────────────────────────────────────────────
+    /// Maximum dimension (width or height) to cap the input image at before
+    /// processing. 0 means use the full original resolution.
     input_max_dim: u32,
 
-    // Dirty flags
+    // ── Dirty flags ───────────────────────────────────────────────────────────
+    /// Set when the effects stack changes; causes the pre-process step to re-run.
     pre_dirty: bool,
+    /// Set when dither/halftone params change; causes only the final step to re-run.
     dither_dirty: bool,
 
-    // Background render
+    // ── Background render ─────────────────────────────────────────────────────
+    /// Receiver half of the channel used to receive results from the background
+    /// render thread. `None` when no render is in progress.
     render_rx: Option<mpsc::Receiver<RenderOutput>>,
 
-    // View state
+    // ── View state ────────────────────────────────────────────────────────────
     zoom: f32,
-    compare_pos: f32,   // 0.0–1.0, position of comparison divider
-    export_scale: u32,  // 1, 2, 4, 8 — nearest-neighbour upscale on save
+    /// Horizontal position of the compare-mode divider, normalized 0.0–1.0.
+    compare_pos: f32,
+    /// Nearest-neighbour upscale factor applied when saving (1, 2, 4, or 8).
+    export_scale: u32,
 
+    /// Text shown in the bottom status bar.
     status: String,
 }
 
@@ -182,6 +227,8 @@ impl DitheringApp {
 
     // ── Background render ─────────────────────────────────────────────────────
 
+    /// Return `original` downscaled to `input_max_dim` if set, otherwise the full image.
+    /// Returns `None` if no image has been loaded.
     fn scaled_original(&self) -> Option<DynamicImage> {
         let img = self.original.as_ref()?;
         if self.input_max_dim == 0
@@ -196,6 +243,9 @@ impl DitheringApp {
         ))
     }
 
+    /// Snapshot the current parameters and spawn a background render thread.
+    /// Clears both dirty flags immediately so that further changes during the
+    /// render set them again and trigger a second pass on completion.
     fn kick_render(&mut self, ctx: &Context) {
         let src = match self.scaled_original() { Some(i) => i, None => return };
 
@@ -231,6 +281,9 @@ impl DitheringApp {
         });
     }
 
+    /// Check the background channel for a completed render result. If one
+    /// is ready, update the stored images and GPU textures. If dirty flags
+    /// were set during the render, kick another pass immediately.
     fn poll_render(&mut self, ctx: &Context) {
         let output = match self.render_rx {
             Some(ref rx) => match rx.try_recv() {
@@ -249,6 +302,8 @@ impl DitheringApp {
         }
     }
 
+    /// Return the active [`Palette`], resolving `Extracted`/`Custom` from
+    /// `user_palette` and falling back to the kind's built-in definition.
     fn resolved_palette(&self) -> Palette {
         match self.palette_kind {
             PaletteKind::Extracted | PaletteKind::Custom if !self.user_palette.is_empty() => {
