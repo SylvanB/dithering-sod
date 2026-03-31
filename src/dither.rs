@@ -64,7 +64,7 @@ const BAYER_16: [[f32; 16]; 16] = [
 // ── Types ────────────────────────────────────────────────────────────────────
 
 /// Dithering algorithm to apply.
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Algorithm {
     Threshold,
     Ordered,
@@ -140,7 +140,7 @@ impl Algorithm {
 }
 
 /// Ordered-dithering matrix size.
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum BayerSize {
     B2,
     B4,
@@ -163,7 +163,7 @@ impl BayerSize {
 }
 
 /// Parameters controlling which dithering algorithm is applied and how.
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct DitherParams {
     pub algorithm: Algorithm,
     /// Bias applied before quantization in Threshold mode (0.0 = midpoint).

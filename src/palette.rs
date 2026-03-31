@@ -59,7 +59,7 @@ impl Palette {
 // ── Built-in palette definitions ─────────────────────────────────────────────
 
 /// Named palette presets available in the UI.
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum PaletteKind {
     GrayRamp2,
     GrayRamp4,

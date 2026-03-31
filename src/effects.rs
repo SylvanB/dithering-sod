@@ -9,7 +9,7 @@ use image::{DynamicImage, RgbImage};
 // ── Effect types ──────────────────────────────────────────────────────────────
 
 /// The type and parameters of a single effect in the stack.
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum EffectKind {
     BrightnessContrastGamma {
         brightness: f32, // -1.0 to 1.0
@@ -79,7 +79,7 @@ pub const EFFECT_NAMES: &[(&str, &str)] = &[
 // ── Effect entry (data + UI state) ────────────────────────────────────────────
 
 /// A single entry in the effects stack.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Effect {
     pub kind: EffectKind,
     pub enabled: bool,
@@ -118,7 +118,7 @@ fn apply_one(img: &DynamicImage, kind: &EffectKind) -> DynamicImage {
         EffectKind::ChromaticAberration { x_shift, y_shift } => {
             chromatic_aberration(img, x_shift, y_shift)
         }
-        EffectKind::ToneCurve { ref points } => tone_curve(img, points),
+        EffectKind::ToneCurve { points } => tone_curve(img, &points),
     }
 }
 

@@ -8,7 +8,6 @@ mod dither;
 mod effects;
 mod halftone;
 mod palette;
-mod preprocess; // kept for backwards compat, logic now in effects.rs
 
 fn main() -> eframe::Result<()> {
     let native_options = eframe::NativeOptions {

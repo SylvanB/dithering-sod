@@ -12,7 +12,7 @@
 use image::{DynamicImage, RgbImage};
 
 /// Shape of each halftone dot.
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum DotShape {
     Circle,
     Square,
@@ -35,7 +35,7 @@ impl DotShape {
 }
 
 /// Parameters for halftone rendering.
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct HalftoneParams {
     /// Grid cell size in pixels (controls dot spacing / "lpi").
     pub cell_size: f32,
