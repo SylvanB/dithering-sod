@@ -137,6 +137,12 @@ pub struct DitheringApp {
     /// Text shown in the status bar.
     status: String,
 
+    // ── Section collapse state ─────────────────────────────────────────────────
+    section_effects_open:   bool,
+    section_palette_open:   bool,
+    section_algorithm_open: bool,
+    section_view_open:      bool,
+
     // ── Undo / redo ───────────────────────────────────────────────────────────────
     undo_stack: std::collections::VecDeque<AppSnapshot>,
     redo_stack: Vec<AppSnapshot>,
@@ -169,6 +175,10 @@ impl Default for DitheringApp {
             compare_pos: 0.5,
             export_scale: 1,
             status: "Drop an image or use \"Open Image\"".to_string(),
+            section_effects_open:   true,
+            section_palette_open:   true,
+            section_algorithm_open: true,
+            section_view_open:      true,
             undo_stack: std::collections::VecDeque::new(),
             redo_stack: Vec::new(),
             undo_pending: None,
@@ -177,7 +187,8 @@ impl Default for DitheringApp {
 }
 
 impl DitheringApp {
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        ui::setup_visuals(&cc.egui_ctx);
         Self::default()
     }
 
@@ -434,114 +445,146 @@ impl eframe::App for DitheringApp {
         }
 
         // ── Top bar ───────────────────────────────────────────────────────────
-        egui::TopBottomPanel::top("top").show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.heading("Dithering Tool");
-                ui.separator();
+        egui::TopBottomPanel::top("top")
+            .frame(
+                egui::Frame::none()
+                    .fill(ui::theme::BAR_FILL)
+                    .stroke(egui::Stroke::new(1.0, ui::theme::BORDER))
+                    .inner_margin(egui::Margin { left: 12.0, right: 12.0, top: 5.0, bottom: 5.0 }),
+            )
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    // Title
+                    ui.label(
+                        RichText::new("Dithering Tool")
+                            .size(15.0)
+                            .color(ui::theme::ACCENT)
+                            .strong(),
+                    );
+                    ui.separator();
 
-                if ui.button("Open Image").clicked() {
-                    if let Some(path) = rfd::FileDialog::new()
-                        .add_filter("Images", &["png", "jpg", "jpeg", "bmp", "gif", "tiff", "webp"])
-                        .pick_file()
-                    {
-                        self.load_image(path, ctx);
-                    }
-                }
-
-                ui.separator();
-
-                let has_output = self.dithered.is_some();
-                ui.menu_button("Save ▾", |ui| {
-                    for (label, fmt) in [
-                        ("PNG", SaveFormat::Png),
-                        ("GIF", SaveFormat::Gif),
-                        ("JPEG", SaveFormat::Jpeg),
-                        ("BMP", SaveFormat::Bmp),
-                    ] {
-                        if ui.add_enabled(has_output, egui::Button::new(label)).clicked() {
-                            self.save_image(fmt);
-                            ui.close_menu();
+                    // File actions
+                    if ui.button("Open Image").clicked() {
+                        if let Some(path) = rfd::FileDialog::new()
+                            .add_filter("Images", &["png", "jpg", "jpeg", "bmp", "gif", "tiff", "webp"])
+                            .pick_file()
+                        {
+                            self.load_image(path, ctx);
                         }
                     }
+
+                    let has_output = self.dithered.is_some();
+                    ui.menu_button("Save ▾", |ui| {
+                        for (label, fmt) in [
+                            ("PNG", SaveFormat::Png),
+                            ("GIF", SaveFormat::Gif),
+                            ("JPEG", SaveFormat::Jpeg),
+                            ("BMP", SaveFormat::Bmp),
+                        ] {
+                            if ui.add_enabled(has_output, egui::Button::new(label)).clicked() {
+                                self.save_image(fmt);
+                                ui.close_menu();
+                            }
+                        }
+                    });
+                    if ui.add_enabled(has_output, egui::Button::new("Copy")).clicked() {
+                        self.copy_to_clipboard();
+                    }
+
+                    ui.separator();
+
+                    // Undo / Redo
+                    if ui.add_enabled(!self.undo_stack.is_empty(), egui::Button::new("↩ Undo"))
+                        .on_hover_text("Cmd+Z").clicked()
+                    {
+                        self.do_undo();
+                    }
+                    if ui.add_enabled(!self.redo_stack.is_empty(), egui::Button::new("↪ Redo"))
+                        .on_hover_text("Cmd+Shift+Z").clicked()
+                    {
+                        self.do_redo();
+                    }
+
+                    ui.separator();
+
+                    // Presets
+                    if ui.button("Save Preset").clicked() {
+                        let snap = self.make_snapshot();
+                        if let Some(path) = rfd::FileDialog::new()
+                            .add_filter("Preset", &["json"])
+                            .set_file_name("preset.json")
+                            .save_file()
+                        {
+                            match serde_json::to_string_pretty(&snap) {
+                                Ok(json) => match std::fs::write(&path, json) {
+                                    Ok(()) => self.status = format!("Preset saved: {}", path.display()),
+                                    Err(e) => self.status = format!("Save error: {e}"),
+                                },
+                                Err(e) => self.status = format!("Serialize error: {e}"),
+                            }
+                        }
+                    }
+                    if ui.button("Load Preset").clicked() {
+                        if let Some(path) = rfd::FileDialog::new()
+                            .add_filter("Preset", &["json"])
+                            .pick_file()
+                        {
+                            match std::fs::read_to_string(&path) {
+                                Ok(json) => match serde_json::from_str::<AppSnapshot>(&json) {
+                                    Ok(snap) => {
+                                        self.push_undo(self.make_snapshot());
+                                        self.apply_snapshot(snap);
+                                        self.status = format!("Preset loaded: {}", path.display());
+                                    }
+                                    Err(e) => self.status = format!("Invalid preset: {e}"),
+                                },
+                                Err(e) => self.status = format!("Read error: {e}"),
+                            }
+                        }
+                    }
+
+                    // Status — right-aligned
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if self.render_rx.is_some() {
+                            ui.label(
+                                RichText::new("rendering…")
+                                    .color(ui::theme::ACCENT)
+                                    .italics()
+                                    .small(),
+                            );
+                            ui.separator();
+                        }
+                        ui.label(RichText::new(&self.status).color(ui::theme::TEXT_WEAK).small());
+                    });
                 });
-
-                if ui.add_enabled(has_output, egui::Button::new("Copy")).clicked() {
-                    self.copy_to_clipboard();
-                }
-
-                ui.separator();
-
-                // Undo / Redo buttons
-                if ui.add_enabled(!self.undo_stack.is_empty(), egui::Button::new("↩ Undo")).on_hover_text("Cmd+Z").clicked() {
-                    self.do_undo();
-                }
-                if ui.add_enabled(!self.redo_stack.is_empty(), egui::Button::new("↪ Redo")).on_hover_text("Cmd+Shift+Z").clicked() {
-                    self.do_redo();
-                }
-
-                ui.separator();
-
-                // Preset save/load
-                if ui.button("Save Preset").clicked() {
-                    let snap = self.make_snapshot();
-                    if let Some(path) = rfd::FileDialog::new()
-                        .add_filter("Preset", &["json"])
-                        .set_file_name("preset.json")
-                        .save_file()
-                    {
-                        match serde_json::to_string_pretty(&snap) {
-                            Ok(json) => match std::fs::write(&path, json) {
-                                Ok(()) => self.status = format!("Preset saved: {}", path.display()),
-                                Err(e) => self.status = format!("Save error: {e}"),
-                            },
-                            Err(e) => self.status = format!("Serialize error: {e}"),
-                        }
-                    }
-                }
-                if ui.button("Load Preset").clicked() {
-                    if let Some(path) = rfd::FileDialog::new()
-                        .add_filter("Preset", &["json"])
-                        .pick_file()
-                    {
-                        match std::fs::read_to_string(&path) {
-                            Ok(json) => match serde_json::from_str::<AppSnapshot>(&json) {
-                                Ok(snap) => {
-                                    self.push_undo(self.make_snapshot());
-                                    self.apply_snapshot(snap);
-                                    self.status = format!("Preset loaded: {}", path.display());
-                                }
-                                Err(e) => self.status = format!("Invalid preset: {e}"),
-                            },
-                            Err(e) => self.status = format!("Read error: {e}"),
-                        }
-                    }
-                }
-
-                ui.separator();
-                ui.label(RichText::new(&self.status).weak());
-                if self.render_rx.is_some() {
-                    ui.label(RichText::new("rendering…").weak().italics());
-                }
             });
-        });
 
         // ── Left panel ────────────────────────────────────────────────────────
         egui::SidePanel::left("controls")
             .resizable(true)
-            .default_width(240.0)
+            .default_width(248.0)
             .min_width(200.0)
+            .frame(
+                egui::Frame::none()
+                    .fill(ui::theme::BG_PANEL)
+                    .inner_margin(egui::Margin { left: 8.0, right: 8.0, top: 8.0, bottom: 8.0 }),
+            )
             .show(ctx, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    ui.add_space(4.0);
                     self.ui_controls(ui);
-                    ui.add_space(8.0);
                 });
             });
 
         // ── Canvas ────────────────────────────────────────────────────────────
-        egui::CentralPanel::default().show(ctx, |ui| {
-            self.ui_canvas(ctx, ui);
-        });
+        egui::CentralPanel::default()
+            .frame(
+                egui::Frame::none()
+                    .fill(ui::theme::BG_APP)
+                    .inner_margin(egui::Margin::same(0.0)),
+            )
+            .show(ctx, |ui| {
+                self.ui_canvas(ctx, ui);
+            });
     }
 }
 
@@ -564,22 +607,20 @@ impl DitheringApp {
         let palette_snap = self.palette_kind;
         let input_snap = self.input_max_dim;
 
-        // Mode toggle
-        ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.mode, AppMode::Dither, "Dither");
-            ui.selectable_value(&mut self.mode, AppMode::Halftone, "Halftone");
+        // Mode toggle card
+        ui::card(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.selectable_value(&mut self.mode, AppMode::Dither, "Dither");
+                ui.selectable_value(&mut self.mode, AppMode::Halftone, "Halftone");
+            });
         });
-        ui.separator();
-        ui.add_space(4.0);
 
         self.ui_effects_stack(ui);
-        ui.add_space(4.0);
 
         match self.mode {
             AppMode::Dither => self.ui_dither_controls(ui),
             AppMode::Halftone => self.ui_halftone_controls(ui),
         }
-        ui.add_space(4.0);
         self.ui_view_controls(ui);
 
         // ── Dirty propagation ─────────────────────────────────────────────────
@@ -615,9 +656,10 @@ impl DitheringApp {
     // ── Effects stack ─────────────────────────────────────────────────────────
 
     fn ui_effects_stack(&mut self, ui: &mut egui::Ui) {
-        egui::CollapsingHeader::new(RichText::new("Effects").strong())
-            .default_open(true)
-            .show(ui, |ui| {
+        ui::card(ui, |ui| {
+            ui::section_header(ui, "Effects", &mut self.section_effects_open);
+            if self.section_effects_open {
+                ui.add_space(4.0);
                 let mut swap_prev: Option<usize> = None;
                 let mut swap_next: Option<usize> = None;
                 let mut delete_idx: Option<usize> = None;
@@ -630,9 +672,9 @@ impl DitheringApp {
                         let label = RichText::new(e.kind.label())
                             .strong()
                             .color(if e.enabled {
-                                ui.visuals().text_color()
+                                ui::theme::TEXT_STRONG
                             } else {
-                                ui.visuals().weak_text_color()
+                                ui::theme::TEXT_WEAK
                             });
                         ui.toggle_value(&mut e.open, label);
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -671,7 +713,8 @@ impl DitheringApp {
                         self.effects.push(Effect::new(EffectKind::default_for_name(key)));
                     }
                 });
-            });
+            }
+        });
     }
 
     // ── Dither controls ───────────────────────────────────────────────────────
@@ -683,9 +726,10 @@ impl DitheringApp {
     }
 
     fn ui_palette_section(&mut self, ui: &mut egui::Ui) {
-        egui::CollapsingHeader::new(RichText::new("Palette").strong())
-            .default_open(true)
-            .show(ui, |ui| {
+        ui::card(ui, |ui| {
+            ui::section_header(ui, "Palette", &mut self.section_palette_open);
+            if self.section_palette_open {
+            ui.add_space(4.0);
                 let w = ui.available_width();
 
                 egui::ComboBox::from_id_salt("palette")
@@ -807,14 +851,16 @@ impl DitheringApp {
                         }
                     });
                 }
-            });
+            } // section_palette_open
+        }); // card
     }
 
     fn ui_algorithm_section(&mut self, ui: &mut egui::Ui) {
         use crate::dither::{Algorithm, BayerSize};
-        egui::CollapsingHeader::new(RichText::new("Dithering").strong())
-            .default_open(true)
-            .show(ui, |ui| {
+        ui::card(ui, |ui| {
+            ui::section_header(ui, "Dithering", &mut self.section_algorithm_open);
+            if self.section_algorithm_open {
+                ui.add_space(4.0);
                 let d = &mut self.dither_params;
                 let w = ui.available_width();
 
@@ -865,16 +911,18 @@ impl DitheringApp {
                 if d.algorithm.needs_serpentine() {
                     ui.checkbox(&mut d.serpentine, "Serpentine scan");
                 }
-            });
+            }
+        });
     }
 
     // ── Halftone controls ─────────────────────────────────────────────────────
 
     fn ui_halftone_controls(&mut self, ui: &mut egui::Ui) {
         use crate::halftone::DotShape;
-        egui::CollapsingHeader::new(RichText::new("Halftone").strong())
-            .default_open(true)
-            .show(ui, |ui| {
+        ui::card(ui, |ui| {
+            ui::section_header(ui, "Halftone", &mut self.section_algorithm_open);
+            if self.section_algorithm_open {
+                ui.add_space(4.0);
                 let h = &mut self.halftone_params;
                 let w = ui.available_width();
 
@@ -926,15 +974,17 @@ impl DitheringApp {
                     ui.add_space(4.0);
                 }
                 ui.checkbox(&mut h.invert, "Invert");
-            });
+            }
+        });
     }
 
     // ── View controls ─────────────────────────────────────────────────────────
 
     fn ui_view_controls(&mut self, ui: &mut egui::Ui) {
-        egui::CollapsingHeader::new(RichText::new("View").strong())
-            .default_open(true)
-            .show(ui, |ui| {
+        ui::card(ui, |ui| {
+            ui::section_header(ui, "View", &mut self.section_view_open);
+            if self.section_view_open {
+                ui.add_space(4.0);
                 ui.horizontal(|ui| {
                     ui.selectable_value(&mut self.view_mode, ViewMode::Compare, "Compare");
                     ui.selectable_value(&mut self.view_mode, ViewMode::Split, "Split");
@@ -978,7 +1028,7 @@ impl DitheringApp {
                     } else {
                         (img.width(), img.height())
                     };
-                    ui.label(RichText::new(format!("→ {w}×{h}px")).weak().small());
+                    ui.label(RichText::new(format!("→ {w}×{h}px")).color(ui::theme::TEXT_WEAK).small());
                 }
                 ui.add_space(4.0);
 
@@ -992,10 +1042,11 @@ impl DitheringApp {
                     });
                 ui.label(
                     RichText::new("Nearest-neighbour upscale on save")
-                        .weak()
+                        .color(ui::theme::TEXT_WEAK)
                         .small(),
                 );
-            });
+            }
+        });
     }
 
     // ── Canvas ────────────────────────────────────────────────────────────────
@@ -1005,13 +1056,39 @@ impl DitheringApp {
 
         if self.original.is_none() {
             ui.allocate_rect(available, egui::Sense::hover());
-            ui.painter().rect_filled(available, 8.0, ui.visuals().faint_bg_color);
-            ui.painter().text(
+            let painter = ui.painter();
+            painter.rect_filled(available, 0.0, ui::theme::BG_APP);
+
+            let box_rect = egui::Rect::from_center_size(
                 available.center(),
+                egui::Vec2::new(300.0, 160.0),
+            );
+            painter.rect(
+                box_rect,
+                egui::Rounding::same(12.0),
+                ui::theme::BG_CARD,
+                egui::Stroke::new(1.5, ui::theme::BORDER),
+            );
+            painter.text(
+                box_rect.center() - egui::vec2(0.0, 32.0),
                 egui::Align2::CENTER_CENTER,
-                "Drop an image here\nor use  Open Image",
-                egui::FontId::proportional(20.0),
-                ui.visuals().weak_text_color(),
+                "⬇",
+                egui::FontId::proportional(36.0),
+                ui::theme::ACCENT,
+            );
+            painter.text(
+                box_rect.center() + egui::vec2(0.0, 10.0),
+                egui::Align2::CENTER_CENTER,
+                "Drop an image here",
+                egui::FontId::proportional(16.0),
+                ui::theme::TEXT_STRONG,
+            );
+            painter.text(
+                box_rect.center() + egui::vec2(0.0, 34.0),
+                egui::Align2::CENTER_CENTER,
+                "or use  Open Image  in the toolbar",
+                egui::FontId::proportional(12.0),
+                ui::theme::TEXT_WEAK,
             );
             return;
         }
