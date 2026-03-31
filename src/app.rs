@@ -61,6 +61,9 @@ pub struct DitheringApp {
     // Halftone params
     halftone_params: HalftoneParams,
 
+    // Input scale (0 = full size, otherwise max dimension in pixels)
+    input_max_dim: u32,
+
     // Dirty flags
     pre_dirty: bool,
     dither_dirty: bool,
@@ -93,6 +96,7 @@ impl Default for DitheringApp {
             user_palette: Vec::new(),
             extract_num_colors: 8,
             halftone_params: HalftoneParams::default(),
+            input_max_dim: 0,
             pre_dirty: false,
             dither_dirty: false,
             render_rx: None,
@@ -178,8 +182,22 @@ impl DitheringApp {
 
     // ── Background render ─────────────────────────────────────────────────────
 
+    fn scaled_original(&self) -> Option<DynamicImage> {
+        let img = self.original.as_ref()?;
+        if self.input_max_dim == 0
+            || (img.width() <= self.input_max_dim && img.height() <= self.input_max_dim)
+        {
+            return Some(img.clone());
+        }
+        Some(img.resize(
+            self.input_max_dim,
+            self.input_max_dim,
+            image::imageops::FilterType::Lanczos3,
+        ))
+    }
+
     fn kick_render(&mut self, ctx: &Context) {
-        let src = match &self.original { Some(i) => i.clone(), None => return };
+        let src = match self.scaled_original() { Some(i) => i, None => return };
 
         let need_pre = self.pre_dirty;
         let pre_base = self.preprocessed.clone();
@@ -249,10 +267,11 @@ impl DitheringApp {
     fn ui_controls(&mut self, ui: &mut egui::Ui) {
         let effects_snap: Vec<(bool, EffectKind)> =
             self.effects.iter().map(|e| (e.enabled, e.kind.clone())).collect();
-        let palette_before  = self.palette_kind.clone();
-        let dither_before   = self.dither_params.clone();
-        let halftone_before = self.halftone_params.clone();
-        let mode_before     = self.mode.clone();
+        let palette_before      = self.palette_kind.clone();
+        let dither_before       = self.dither_params.clone();
+        let halftone_before     = self.halftone_params.clone();
+        let mode_before         = self.mode.clone();
+        let input_dim_before    = self.input_max_dim;
 
         // Mode toggle
         ui.horizontal(|ui| {
@@ -284,6 +303,10 @@ impl DitheringApp {
             || self.dither_params != dither_before
             || self.halftone_params != halftone_before
         {
+            self.dither_dirty = true;
+        }
+        if self.input_max_dim != input_dim_before {
+            self.pre_dirty = true;
             self.dither_dirty = true;
         }
     }
@@ -582,6 +605,24 @@ impl DitheringApp {
                     .custom_formatter(|v, _| format!("{:.1}×", v)));
                 if ui.button("Reset zoom").clicked() { self.zoom = 1.0; }
                 ui.add_space(4.0);
+                ui.label("Downscale input");
+                egui::ComboBox::from_id_salt("input_scale")
+                    .selected_text(input_dim_label(self.input_max_dim))
+                    .show_ui(ui, |ui| {
+                        for &dim in &[0u32, 2048, 1024, 512, 256, 128] {
+                            ui.selectable_value(&mut self.input_max_dim, dim, input_dim_label(dim));
+                        }
+                    });
+                if let Some(ref img) = self.original {
+                    let (w, h) = if self.input_max_dim > 0 && (img.width() > self.input_max_dim || img.height() > self.input_max_dim) {
+                        let scale = self.input_max_dim as f32 / img.width().max(img.height()) as f32;
+                        ((img.width() as f32 * scale) as u32, (img.height() as f32 * scale) as u32)
+                    } else {
+                        (img.width(), img.height())
+                    };
+                    ui.label(RichText::new(format!("→ {w}×{h}px")).weak().small());
+                }
+                ui.add_space(4.0);
                 ui.label("Export scale");
                 egui::ComboBox::from_id_salt("export_scale")
                     .selected_text(format!("{}×", self.export_scale))
@@ -733,6 +774,12 @@ impl eframe::App for DitheringApp {
         }
 
         self.poll_render(ctx);
+        // When input scale changes, rebuild the "before" texture so compare view stays in sync
+        if self.pre_dirty {
+            if let Some(scaled) = self.scaled_original() {
+                self.original_tex = Some(dynamic_to_texture(ctx, "original", &scaled));
+            }
+        }
         if (self.pre_dirty || self.dither_dirty) && self.original.is_some() && self.render_rx.is_none() {
             self.kick_render(ctx);
         }
@@ -886,6 +933,18 @@ fn tone_curve_widget(ui: &mut egui::Ui, points: &mut [f32; 5]) {
 }
 
 // ── Save helpers ──────────────────────────────────────────────────────────────
+
+fn input_dim_label(dim: u32) -> &'static str {
+    match dim {
+        0    => "Full size",
+        128  => "128px",
+        256  => "256px",
+        512  => "512px",
+        1024 => "1024px",
+        2048 => "2048px",
+        _    => "Custom",
+    }
+}
 
 #[derive(Clone, Copy)]
 enum SaveFormat { Png, Gif, Jpeg, Bmp }
