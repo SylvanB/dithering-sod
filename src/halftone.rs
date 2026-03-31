@@ -26,9 +26,10 @@ impl DotShape {
 pub struct HalftoneParams {
     pub cell_size: f32,
     pub dot_shape: DotShape,
-    pub angle: f32,    // degrees, used for Gray mode
-    pub invert: bool,  // white dots on black vs black on white
-    pub cmyk: bool,    // CMYK 4-screen vs grayscale single screen
+    pub angle: f32,      // degrees, used for Gray mode
+    pub dot_scale: f32,  // multiplier on the dot radius (1.0 = fills cell, >1.0 overlaps)
+    pub invert: bool,    // white dots on black vs black on white
+    pub cmyk: bool,      // CMYK 4-screen vs grayscale single screen
 }
 
 impl Default for HalftoneParams {
@@ -37,6 +38,7 @@ impl Default for HalftoneParams {
             cell_size: 8.0,
             dot_shape: DotShape::Circle,
             angle: 45.0,
+            dot_scale: 1.0,
             invert: false,
             cmyk: false,
         }
@@ -87,7 +89,7 @@ fn halftone_gray(src: &DynamicImage, params: &HalftoneParams) -> DynamicImage {
 
             let coverage = if params.invert { 1.0 - luma } else { luma };
             let half = cell * 0.5;
-            let dot_r = coverage.sqrt() * half;
+            let dot_r = coverage.sqrt() * half * params.dot_scale;
 
             let dx = px - (gx as f32 + 0.5);
             let dy = py - (gy as f32 + 0.5);
@@ -147,7 +149,7 @@ fn halftone_cmyk(src: &DynamicImage, params: &HalftoneParams) -> DynamicImage {
                 let ch_val = [c, m, yy, k][ch];
 
                 let half = cell * 0.5;
-                let dot_r = ch_val.sqrt() * half;
+                let dot_r = ch_val.sqrt() * half * params.dot_scale;
 
                 let dx = px - (gx as f32 + 0.5);
                 let dy = py - (gy as f32 + 0.5);

@@ -497,6 +497,10 @@ impl DitheringApp {
                 ui.add(egui::Slider::new(&mut h.cell_size, 2.0..=64.0)
                     .custom_formatter(|v, _| format!("{:.0}px", v)));
                 ui.add_space(4.0);
+                ui.label("Dot scale");
+                ui.add(egui::Slider::new(&mut h.dot_scale, 0.1..=2.0)
+                    .custom_formatter(|v, _| format!("{:.2}×", v)));
+                ui.add_space(4.0);
                 ui.label("Dot shape");
                 egui::ComboBox::from_id_salt("dot_shape")
                     .selected_text(h.dot_shape.name())
