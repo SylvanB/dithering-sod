@@ -24,6 +24,7 @@ use std::sync::mpsc;
 
 use egui::{ColorImage, Context, RichText, TextureHandle, TextureOptions};
 use image::DynamicImage;
+use serde::{Deserialize, Serialize};
 
 use crate::dither::DitherParams;
 use crate::effects::{Effect, EffectKind, EFFECT_NAMES};
@@ -36,6 +37,18 @@ use crate::palette::{Palette, PaletteKind};
 struct RenderOutput {
     preprocessed: DynamicImage,
     dithered: DynamicImage,
+}
+
+/// Snapshot of all creative state — used for undo/redo and preset serialization.
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+struct AppSnapshot {
+    mode: AppMode,
+    effects: Vec<Effect>,
+    dither_params: DitherParams,
+    halftone_params: HalftoneParams,
+    palette_kind: PaletteKind,
+    user_palette: Vec<[f32; 3]>,
+    input_max_dim: u32,
 }
 
 // ── View mode ─────────────────────────────────────────────────────────────────
@@ -54,7 +67,7 @@ pub enum ViewMode {
 // ── App mode ──────────────────────────────────────────────────────────────────
 
 /// Top-level processing mode.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum AppMode {
     Dither,
     Halftone,
@@ -123,6 +136,12 @@ pub struct DitheringApp {
 
     /// Text shown in the status bar.
     status: String,
+
+    // ── Undo / redo ───────────────────────────────────────────────────────────────
+    undo_stack: std::collections::VecDeque<AppSnapshot>,
+    redo_stack: Vec<AppSnapshot>,
+    /// Snapshot captured at the start of a pointer-drag gesture for grouping continuous edits.
+    undo_pending: Option<AppSnapshot>,
 }
 
 impl Default for DitheringApp {
@@ -150,6 +169,9 @@ impl Default for DitheringApp {
             compare_pos: 0.5,
             export_scale: 1,
             status: "Drop an image or use \"Open Image\"".to_string(),
+            undo_stack: std::collections::VecDeque::new(),
+            redo_stack: Vec::new(),
+            undo_pending: None,
         }
     }
 }
@@ -320,6 +342,57 @@ impl DitheringApp {
             _ => self.palette_kind.build(),
         }
     }
+
+    fn make_snapshot(&self) -> AppSnapshot {
+        AppSnapshot {
+            mode: self.mode,
+            effects: self.effects.clone(),
+            dither_params: self.dither_params,
+            halftone_params: self.halftone_params,
+            palette_kind: self.palette_kind,
+            user_palette: self.user_palette.clone(),
+            input_max_dim: self.input_max_dim,
+        }
+    }
+
+    fn apply_snapshot(&mut self, snap: AppSnapshot) {
+        self.mode = snap.mode;
+        self.effects = snap.effects;
+        self.dither_params = snap.dither_params;
+        self.halftone_params = snap.halftone_params;
+        self.palette_kind = snap.palette_kind;
+        self.user_palette = snap.user_palette;
+        self.input_max_dim = snap.input_max_dim;
+        self.pre_dirty = true;
+        self.dither_dirty = true;
+    }
+
+    fn push_undo(&mut self, snap: AppSnapshot) {
+        const MAX_UNDO: usize = 50;
+        self.undo_stack.push_back(snap);
+        if self.undo_stack.len() > MAX_UNDO {
+            self.undo_stack.pop_front();
+        }
+        self.redo_stack.clear();
+    }
+
+    fn do_undo(&mut self) {
+        if let Some(snap) = self.undo_stack.pop_back() {
+            let current = self.make_snapshot();
+            self.redo_stack.push(current);
+            self.apply_snapshot(snap);
+            self.status = format!("Undo ({} left)", self.undo_stack.len());
+        }
+    }
+
+    fn do_redo(&mut self) {
+        if let Some(snap) = self.redo_stack.pop() {
+            let current = self.make_snapshot();
+            self.undo_stack.push_back(current);
+            self.apply_snapshot(snap);
+            self.status = format!("Redo ({} left)", self.redo_stack.len());
+        }
+    }
 }
 
 // ── eframe::App ───────────────────────────────────────────────────────────────
@@ -335,6 +408,18 @@ impl eframe::App for DitheringApp {
         }
 
         self.poll_render(ctx);
+
+        // Undo: Cmd+Z (Mac) / Ctrl+Z (Windows/Linux)
+        if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::Z) && !i.modifiers.shift) {
+            self.do_undo();
+        }
+        // Redo: Cmd+Shift+Z or Cmd+Y
+        if ctx.input(|i| {
+            i.modifiers.command
+                && (i.key_pressed(egui::Key::Y) || (i.key_pressed(egui::Key::Z) && i.modifiers.shift))
+        }) {
+            self.do_redo();
+        }
 
         // Rebuild the "before" texture whenever the input scale changes so the
         // compare view stays in sync with the processing resolution.
@@ -385,6 +470,54 @@ impl eframe::App for DitheringApp {
                 }
 
                 ui.separator();
+
+                // Undo / Redo buttons
+                if ui.add_enabled(!self.undo_stack.is_empty(), egui::Button::new("↩ Undo")).on_hover_text("Cmd+Z").clicked() {
+                    self.do_undo();
+                }
+                if ui.add_enabled(!self.redo_stack.is_empty(), egui::Button::new("↪ Redo")).on_hover_text("Cmd+Shift+Z").clicked() {
+                    self.do_redo();
+                }
+
+                ui.separator();
+
+                // Preset save/load
+                if ui.button("Save Preset").clicked() {
+                    let snap = self.make_snapshot();
+                    if let Some(path) = rfd::FileDialog::new()
+                        .add_filter("Preset", &["json"])
+                        .set_file_name("preset.json")
+                        .save_file()
+                    {
+                        match serde_json::to_string_pretty(&snap) {
+                            Ok(json) => match std::fs::write(&path, json) {
+                                Ok(()) => self.status = format!("Preset saved: {}", path.display()),
+                                Err(e) => self.status = format!("Save error: {e}"),
+                            },
+                            Err(e) => self.status = format!("Serialize error: {e}"),
+                        }
+                    }
+                }
+                if ui.button("Load Preset").clicked() {
+                    if let Some(path) = rfd::FileDialog::new()
+                        .add_filter("Preset", &["json"])
+                        .pick_file()
+                    {
+                        match std::fs::read_to_string(&path) {
+                            Ok(json) => match serde_json::from_str::<AppSnapshot>(&json) {
+                                Ok(snap) => {
+                                    self.push_undo(self.make_snapshot());
+                                    self.apply_snapshot(snap);
+                                    self.status = format!("Preset loaded: {}", path.display());
+                                }
+                                Err(e) => self.status = format!("Invalid preset: {e}"),
+                            },
+                            Err(e) => self.status = format!("Read error: {e}"),
+                        }
+                    }
+                }
+
+                ui.separator();
                 ui.label(RichText::new(&self.status).weak());
                 if self.render_rx.is_some() {
                     ui.label(RichText::new("rendering…").weak().italics());
@@ -416,6 +549,13 @@ impl eframe::App for DitheringApp {
 
 impl DitheringApp {
     fn ui_controls(&mut self, ui: &mut egui::Ui) {
+        // ── Undo tracking ─────────────────────────────────────────────────────────────
+        let pointer_down = ui.input(|i| i.pointer.any_down());
+        let pre_undo = self.make_snapshot();
+        if pointer_down && self.undo_pending.is_none() {
+            self.undo_pending = Some(pre_undo.clone());
+        }
+
         // Snapshot Copy params before rendering — no allocations needed.
         let effects_snap: Vec<Effect> = self.effects.clone();
         let dither_snap = self.dither_params;
@@ -457,6 +597,18 @@ impl DitheringApp {
         if self.input_max_dim != input_snap {
             self.pre_dirty = true;
             self.dither_dirty = true;
+        }
+
+        // Push undo on discrete changes or when a drag gesture completes.
+        let post_undo = self.make_snapshot();
+        if !pointer_down {
+            if let Some(pending) = self.undo_pending.take() {
+                if pending != post_undo {
+                    self.push_undo(pending);
+                }
+            } else if pre_undo != post_undo {
+                self.push_undo(pre_undo);
+            }
         }
     }
 

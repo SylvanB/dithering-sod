@@ -10,9 +10,10 @@
 //!   composited subtractively onto a white background
 
 use image::{DynamicImage, RgbImage};
+use serde::{Deserialize, Serialize};
 
 /// Shape of each halftone dot.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum DotShape {
     Circle,
     Square,
@@ -35,7 +36,7 @@ impl DotShape {
 }
 
 /// Parameters for halftone rendering.
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub struct HalftoneParams {
     /// Grid cell size in pixels (controls dot spacing / "lpi").
     pub cell_size: f32,

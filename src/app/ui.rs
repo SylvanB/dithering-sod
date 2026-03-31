@@ -71,6 +71,24 @@ pub(super) fn effect_params_ui(ui: &mut egui::Ui, kind: &mut EffectKind) {
         EffectKind::ToneCurve { points } => {
             tone_curve_widget(ui, points);
         }
+        EffectKind::CrtGlow { radius, strength } => {
+            ui.label("Radius");
+            ui.add(egui::Slider::new(radius, 1..=32).suffix("px"));
+            ui.label("Strength");
+            ui.add(
+                egui::Slider::new(strength, 0.0..=3.0)
+                    .custom_formatter(|v, _| format!("{v:.2}×")),
+            );
+        }
+        EffectKind::Scanlines { spacing, opacity } => {
+            ui.label("Spacing");
+            ui.add(egui::Slider::new(spacing, 2..=16).suffix("px"));
+            ui.label("Opacity");
+            ui.add(
+                egui::Slider::new(opacity, 0.0..=1.0)
+                    .custom_formatter(|v, _| format!("{:.0}%", v * 100.0)),
+            );
+        }
     }
 }
 

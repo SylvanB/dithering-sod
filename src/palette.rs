@@ -5,6 +5,7 @@
 //! dynamic variants (`Extracted` and `Custom`) that are managed by app state.
 
 use image::DynamicImage;
+use serde::{Deserialize, Serialize};
 
 /// A set of RGB colors used as the quantization target during dithering.
 ///
@@ -59,7 +60,7 @@ impl Palette {
 // ── Built-in palette definitions ─────────────────────────────────────────────
 
 /// Named palette presets available in the UI.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum PaletteKind {
     GrayRamp2,
     GrayRamp4,

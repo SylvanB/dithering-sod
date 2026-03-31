@@ -11,6 +11,7 @@
 //! [`Palette`] using a perceptually-weighted Euclidean distance.
 
 use image::{DynamicImage, RgbImage};
+use serde::{Deserialize, Serialize};
 use crate::palette::Palette;
 
 // ── Bayer matrices ──────────────────────────────────────────────────────────
@@ -64,7 +65,7 @@ const BAYER_16: [[f32; 16]; 16] = [
 // ── Types ────────────────────────────────────────────────────────────────────
 
 /// Dithering algorithm to apply.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Algorithm {
     Threshold,
     Ordered,
@@ -140,7 +141,7 @@ impl Algorithm {
 }
 
 /// Ordered-dithering matrix size.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum BayerSize {
     B2,
     B4,
@@ -163,7 +164,7 @@ impl BayerSize {
 }
 
 /// Parameters controlling which dithering algorithm is applied and how.
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub struct DitherParams {
     pub algorithm: Algorithm,
     /// Bias applied before quantization in Threshold mode (0.0 = midpoint).

@@ -5,11 +5,12 @@
 //! wraps an [`EffectKind`] with an enabled toggle and a UI open/collapsed flag.
 
 use image::{DynamicImage, RgbImage};
+use serde::{Deserialize, Serialize};
 
 // ── Effect types ──────────────────────────────────────────────────────────────
 
 /// The type and parameters of a single effect in the stack.
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub enum EffectKind {
     BrightnessContrastGamma {
         brightness: f32, // -1.0 to 1.0
@@ -36,6 +37,15 @@ pub enum EffectKind {
     ToneCurve {
         points: [f32; 5],
     },
+    /// CRT-style bloom glow: blurs the image and blends it back additively.
+    CrtGlow {
+        radius: u32,   // 1–32 pixels
+        strength: f32, // 0.0–3.0 blend multiplier
+    },
+    Scanlines {
+        spacing: u32, // 2–16 pixels
+        opacity: f32, // 0.0–1.0
+    },
 }
 
 impl EffectKind {
@@ -48,6 +58,8 @@ impl EffectKind {
             "jpeg"      => EffectKind::JpegGlitch { quality: 20 },
             "chroma"    => EffectKind::ChromaticAberration { x_shift: 5.0, y_shift: 0.0 },
             "curve"     => EffectKind::ToneCurve { points: [0.0, 0.25, 0.5, 0.75, 1.0] },
+            "crtglow"   => EffectKind::CrtGlow { radius: 8, strength: 0.6 },
+            "scanlines" => EffectKind::Scanlines { spacing: 4, opacity: 0.7 },
             _           => EffectKind::BrightnessContrastGamma { brightness: 0.0, contrast: 1.0, gamma: 1.0 },
         }
     }
@@ -61,6 +73,8 @@ impl EffectKind {
             EffectKind::JpegGlitch { .. }              => "JPEG Glitch",
             EffectKind::ChromaticAberration { .. }     => "Chromatic Aberration",
             EffectKind::ToneCurve { .. }               => "Tone Curve",
+            EffectKind::CrtGlow { .. }                 => "CRT Glow",
+            EffectKind::Scanlines { .. }               => "Scanlines",
         }
     }
 }
@@ -74,12 +88,14 @@ pub const EFFECT_NAMES: &[(&str, &str)] = &[
     ("pixelate",  "Pixelate"),
     ("jpeg",      "JPEG Glitch"),
     ("chroma",    "Chromatic Aberration"),
+    ("crtglow",   "CRT Glow"),
+    ("scanlines", "Scanlines"),
 ];
 
 // ── Effect entry (data + UI state) ────────────────────────────────────────────
 
 /// A single entry in the effects stack.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Effect {
     pub kind: EffectKind,
     pub enabled: bool,
@@ -119,6 +135,8 @@ fn apply_one(img: &DynamicImage, kind: &EffectKind) -> DynamicImage {
             chromatic_aberration(img, x_shift, y_shift)
         }
         EffectKind::ToneCurve { points } => tone_curve(img, &points),
+        EffectKind::CrtGlow { radius, strength } => crt_glow(img, radius, strength),
+        EffectKind::Scanlines { spacing, opacity } => scanlines(img, spacing, opacity),
     }
 }
 
@@ -265,6 +283,79 @@ fn jpeg_glitch(src: &DynamicImage, quality: u8) -> DynamicImage {
     }
     image::load_from_memory_with_format(&buf, image::ImageFormat::Jpeg)
         .unwrap_or_else(|_| src.clone())
+}
+
+/// Separable box blur with the given pixel radius (horizontal then vertical pass).
+fn box_blur_r(rgb: &RgbImage, radius: u32) -> RgbImage {
+    let (w, h) = rgb.dimensions();
+    let r = radius.max(1) as i32;
+    let diam = (2 * r + 1) as u32;
+
+    // Horizontal pass
+    let mut horiz = RgbImage::new(w, h);
+    for y in 0..h {
+        for x in 0..w {
+            let (mut sr, mut sg, mut sb) = (0u32, 0u32, 0u32);
+            for dx in -r..=r {
+                let nx = (x as i32 + dx).clamp(0, w as i32 - 1) as u32;
+                let p = rgb.get_pixel(nx, y);
+                sr += p[0] as u32; sg += p[1] as u32; sb += p[2] as u32;
+            }
+            horiz.put_pixel(x, y, image::Rgb([(sr/diam) as u8, (sg/diam) as u8, (sb/diam) as u8]));
+        }
+    }
+
+    // Vertical pass
+    let mut vert = RgbImage::new(w, h);
+    for y in 0..h {
+        for x in 0..w {
+            let (mut sr, mut sg, mut sb) = (0u32, 0u32, 0u32);
+            for dy in -r..=r {
+                let ny = (y as i32 + dy).clamp(0, h as i32 - 1) as u32;
+                let p = horiz.get_pixel(x, ny);
+                sr += p[0] as u32; sg += p[1] as u32; sb += p[2] as u32;
+            }
+            vert.put_pixel(x, y, image::Rgb([(sr/diam) as u8, (sg/diam) as u8, (sb/diam) as u8]));
+        }
+    }
+    vert
+}
+
+/// CRT-style glow: blurs the image twice (approximate Gaussian) then adds
+/// the result back onto the original with `strength` as the blend factor.
+fn crt_glow(src: &DynamicImage, radius: u32, strength: f32) -> DynamicImage {
+    let rgb = src.to_rgb8();
+    let (w, h) = rgb.dimensions();
+
+    // Two box-blur passes ≈ Gaussian
+    let blurred = box_blur_r(&box_blur_r(&rgb, radius), radius);
+
+    let mut out = RgbImage::new(w, h);
+    for (x, y, px) in rgb.enumerate_pixels() {
+        let bl = blurred.get_pixel(x, y);
+        let add = |orig: u8, glow: u8| -> u8 {
+            (orig as f32 + strength * glow as f32).clamp(0.0, 255.0) as u8
+        };
+        out.put_pixel(x, y, image::Rgb([add(px[0], bl[0]), add(px[1], bl[1]), add(px[2], bl[2])]));
+    }
+    DynamicImage::ImageRgb8(out)
+}
+
+fn scanlines(src: &DynamicImage, spacing: u32, opacity: f32) -> DynamicImage {
+    let rgb = src.to_rgb8();
+    let (w, h) = rgb.dimensions();
+    let spacing = spacing.max(2);
+    let mut out = rgb.clone();
+    for y in 0..h {
+        if y % spacing == 0 {
+            for x in 0..w {
+                let p = out.get_pixel(x, y);
+                let darken = |v: u8| -> u8 { (v as f32 * (1.0 - opacity)).round() as u8 };
+                out.put_pixel(x, y, image::Rgb([darken(p[0]), darken(p[1]), darken(p[2])]));
+            }
+        }
+    }
+    DynamicImage::ImageRgb8(out)
 }
 
 fn chromatic_aberration(src: &DynamicImage, x_shift: f32, y_shift: f32) -> DynamicImage {
