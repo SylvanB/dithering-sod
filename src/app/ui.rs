@@ -5,161 +5,147 @@
 //! data types they receive as arguments. Keeping them here reduces the length
 //! of `mod.rs` and makes them easy to test in isolation.
 
-use egui::{Color32, Frame, Margin, Pos2, Rect, Rounding, Sense, Stroke, TextureHandle, Vec2};
+use egui::{Color32, Pos2, Rect, Rounding, Sense, Stroke, TextureHandle, Vec2};
 
 use crate::effects::{eval_curve, EffectKind};
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 
-/// Centralised colour + spacing constants for the custom dark theme.
+/// Green phosphor terminal colour constants.
 pub(super) mod theme {
     use egui::Color32;
 
-    // Background layers (darkest → lightest)
-    pub const BG_APP:      Color32 = Color32::from_rgb(13,  13,  20);
-    pub const BG_PANEL:    Color32 = Color32::from_rgb(18,  18,  28);
-    pub const BG_CARD:     Color32 = Color32::from_rgb(28,  28,  42);
-    pub const BG_CARD_HI:  Color32 = Color32::from_rgb(38,  38,  58);
-
-    // Borders
-    pub const BORDER:      Color32 = Color32::from_rgb(48,  48,  72);
-    pub const BORDER_SEP:  Color32 = Color32::from_rgb(34,  34,  52);
-
-    // Accent (muted teal)
-    pub const ACCENT:      Color32 = Color32::from_rgb(78, 201, 176);
-    pub const ACCENT_DIM:  Color32 = Color32::from_rgb(42, 107,  94);
-
-    // Text
-    pub const TEXT_STRONG: Color32 = Color32::from_rgb(224, 224, 239);
-    pub const TEXT_WEAK:   Color32 = Color32::from_rgb(110, 110, 145);
-
-    // Top bar
-    pub const BAR_FILL:    Color32 = Color32::from_rgb(20,  20,  32);
+    pub const BG:             Color32 = Color32::from_rgb(0x05, 0x0a, 0x05);
+    pub const BG_PANEL:       Color32 = Color32::from_rgb(0x07, 0x0c, 0x07);
+    pub const BG_WIDGET:      Color32 = Color32::from_rgb(0x0c, 0x16, 0x0c);
+    pub const BG_WIDGET_HI:   Color32 = Color32::from_rgb(0x14, 0x20, 0x14);
+    pub const GREEN:          Color32 = Color32::from_rgb(0x33, 0xff, 0x77);
+    pub const GREEN_DIM:      Color32 = Color32::from_rgb(0x1a, 0x66, 0x33);
+    pub const GREEN_FAINT:    Color32 = Color32::from_rgb(0x0c, 0x24, 0x14);
+    pub const BORDER:         Color32 = Color32::from_rgb(0x1a, 0x4a, 0x1a);
+    pub const BORDER_BRIGHT:  Color32 = Color32::from_rgb(0x33, 0xff, 0x77);
 }
 
 // ── Global visuals setup ──────────────────────────────────────────────────────
 
-/// Apply the custom dark theme visuals. Call once from `DitheringApp::new`.
+/// Apply the phosphor-green terminal theme. Call once from `DitheringApp::new`.
 pub(super) fn setup_visuals(ctx: &egui::Context) {
-    use egui::{FontId, Style, TextStyle, Visuals};
+    use egui::{FontFamily::Monospace, FontId, Style, TextStyle, Visuals};
+    use std::collections::BTreeMap;
 
-    let mut visuals = Visuals::dark();
+    let mut v = Visuals::dark();
 
-    // Window / panel fills
-    visuals.window_fill        = theme::BG_APP;
-    visuals.panel_fill         = theme::BG_PANEL;
-    visuals.faint_bg_color     = theme::BG_CARD;
-    visuals.extreme_bg_color   = theme::BG_APP;
-    visuals.code_bg_color      = theme::BG_CARD;
-    visuals.hyperlink_color    = theme::ACCENT;
-    visuals.override_text_color = Some(theme::TEXT_STRONG);
+    v.override_text_color  = Some(theme::GREEN);
+    v.panel_fill           = theme::BG_PANEL;
+    v.window_fill          = theme::BG;
+    v.extreme_bg_color     = theme::BG;
+    v.faint_bg_color       = theme::BG_WIDGET;
+    v.code_bg_color        = theme::BG_WIDGET;
+    v.hyperlink_color      = theme::GREEN;
+    v.selection.bg_fill    = theme::BG_WIDGET_HI;
+    v.selection.stroke     = Stroke::new(1.0, theme::GREEN);
 
-    // Selection highlight
-    visuals.selection.bg_fill = theme::ACCENT_DIM;
-    visuals.selection.stroke  = Stroke::new(1.0, theme::ACCENT);
+    let zero = Rounding::ZERO;
 
-    // Widget states — bg_fill, bg_stroke, fg_stroke, rounding, expansion
-    let rounding = Rounding::same(5.0);
-    let border   = Stroke::new(1.0, theme::BORDER);
-    let fg       = Stroke::new(1.5, theme::TEXT_STRONG);
+    v.widgets.noninteractive = egui::style::WidgetVisuals {
+        bg_fill: theme::BG_WIDGET, weak_bg_fill: theme::BG_WIDGET,
+        bg_stroke: Stroke::new(1.0, theme::BORDER),
+        fg_stroke: Stroke::new(1.0, theme::GREEN_DIM),
+        rounding: zero, expansion: 0.0,
+    };
+    v.widgets.inactive = egui::style::WidgetVisuals {
+        bg_fill: theme::BG_WIDGET, weak_bg_fill: theme::BG_WIDGET,
+        bg_stroke: Stroke::new(1.0, theme::BORDER),
+        fg_stroke: Stroke::new(1.0, theme::GREEN),
+        rounding: zero, expansion: 0.0,
+    };
+    v.widgets.hovered = egui::style::WidgetVisuals {
+        bg_fill: theme::BG_WIDGET_HI, weak_bg_fill: theme::BG_WIDGET_HI,
+        bg_stroke: Stroke::new(1.0, theme::BORDER_BRIGHT),
+        fg_stroke: Stroke::new(1.5, theme::GREEN),
+        rounding: zero, expansion: 0.0,
+    };
+    v.widgets.active = egui::style::WidgetVisuals {
+        bg_fill: theme::BG_WIDGET, weak_bg_fill: theme::BG_WIDGET,
+        bg_stroke: Stroke::new(1.5, theme::BORDER_BRIGHT),
+        fg_stroke: Stroke::new(2.0, theme::GREEN),
+        rounding: zero, expansion: 0.0,
+    };
+    v.widgets.open = egui::style::WidgetVisuals {
+        bg_fill: theme::BG_WIDGET_HI, weak_bg_fill: theme::BG_WIDGET_HI,
+        bg_stroke: Stroke::new(1.0, theme::BORDER_BRIGHT),
+        fg_stroke: Stroke::new(1.5, theme::GREEN),
+        rounding: zero, expansion: 0.0,
+    };
 
-    visuals.widgets.noninteractive.bg_fill    = theme::BG_CARD;
-    visuals.widgets.noninteractive.bg_stroke  = Stroke::new(1.0, theme::BORDER_SEP);
-    visuals.widgets.noninteractive.fg_stroke  = Stroke::new(1.0, theme::TEXT_WEAK);
-    visuals.widgets.noninteractive.rounding   = rounding;
-    visuals.widgets.noninteractive.expansion  = 0.0;
+    ctx.set_visuals(v);
 
-    visuals.widgets.inactive.bg_fill   = theme::BG_CARD;
-    visuals.widgets.inactive.bg_stroke = border;
-    visuals.widgets.inactive.fg_stroke = fg;
-    visuals.widgets.inactive.rounding  = rounding;
-    visuals.widgets.inactive.expansion = 0.0;
-
-    visuals.widgets.hovered.bg_fill   = theme::BG_CARD_HI;
-    visuals.widgets.hovered.bg_stroke = Stroke::new(1.0, theme::ACCENT);
-    visuals.widgets.hovered.fg_stroke = Stroke::new(1.5, theme::ACCENT);
-    visuals.widgets.hovered.rounding  = rounding;
-    visuals.widgets.hovered.expansion = 1.0;
-
-    visuals.widgets.active.bg_fill   = theme::ACCENT_DIM;
-    visuals.widgets.active.bg_stroke = Stroke::new(1.0, theme::ACCENT);
-    visuals.widgets.active.fg_stroke = Stroke::new(2.0, theme::ACCENT);
-    visuals.widgets.active.rounding  = rounding;
-    visuals.widgets.active.expansion = 1.0;
-
-    visuals.widgets.open.bg_fill   = theme::BG_CARD_HI;
-    visuals.widgets.open.bg_stroke = Stroke::new(1.0, theme::ACCENT);
-    visuals.widgets.open.fg_stroke = Stroke::new(1.5, theme::TEXT_STRONG);
-    visuals.widgets.open.rounding  = rounding;
-    visuals.widgets.open.expansion = 0.0;
-
-    ctx.set_visuals(visuals);
-
-    // Spacing / typography tweaks
     ctx.style_mut(|s: &mut Style| {
-        s.spacing.button_padding  = egui::vec2(8.0, 4.0);
-        s.spacing.item_spacing    = egui::vec2(6.0, 4.0);
-        s.spacing.window_margin   = Margin::same(12.0);
-        s.spacing.menu_margin     = Margin::same(6.0);
-        s.text_styles.insert(
-            TextStyle::Body,
-            FontId::proportional(13.0),
-        );
-        s.text_styles.insert(
-            TextStyle::Button,
-            FontId::proportional(13.0),
-        );
-        s.text_styles.insert(
-            TextStyle::Small,
-            FontId::proportional(11.0),
-        );
+        s.text_styles = BTreeMap::from([
+            (TextStyle::Body,      FontId::new(13.0, Monospace)),
+            (TextStyle::Button,    FontId::new(13.0, Monospace)),
+            (TextStyle::Heading,   FontId::new(14.0, Monospace)),
+            (TextStyle::Small,     FontId::new(11.0, Monospace)),
+            (TextStyle::Monospace, FontId::new(13.0, Monospace)),
+        ]);
+        s.spacing.button_padding = egui::vec2(6.0, 3.0);
+        s.spacing.item_spacing   = egui::vec2(4.0, 3.0);
     });
 }
 
-// ── Card helpers ──────────────────────────────────────────────────────────────
+// ── Section helpers ───────────────────────────────────────────────────────────
 
-/// Render `add_contents` inside a styled "card" frame with rounded corners,
-/// a subtle border, and consistent inner padding.
-pub(super) fn card<R>(
+/// Wraps a section body with minimal vertical spacing and a faint bottom rule.
+pub(super) fn section<R>(
     ui: &mut egui::Ui,
     add_contents: impl FnOnce(&mut egui::Ui) -> R,
-) -> egui::InnerResponse<R> {
-    Frame::none()
-        .fill(theme::BG_CARD)
-        .rounding(Rounding::same(6.0))
-        .stroke(Stroke::new(1.0, theme::BORDER))
-        .inner_margin(Margin::same(10.0))
-        .outer_margin(Margin { left: 0.0, right: 0.0, top: 0.0, bottom: 6.0 })
-        .show(ui, add_contents)
+) -> R {
+    ui.add_space(4.0);
+    let result = add_contents(ui);
+    ui.add_space(4.0);
+    let (rect, _) = ui.allocate_exact_size(
+        egui::vec2(ui.available_width(), 1.0),
+        Sense::hover(),
+    );
+    ui.painter().hline(rect.x_range(), rect.center().y, Stroke::new(1.0, theme::BORDER));
+    result
 }
 
-/// A clickable section header row rendered directly with the painter so the
-/// layout stays predictable inside a card.
+/// ASCII-rule style collapsible section header.
+///
+/// Renders as: `[- LABEL ]──────────────────`
+/// Clicking anywhere on the row toggles `open`.
 pub(super) fn section_header(ui: &mut egui::Ui, label: &str, open: &mut bool) {
-    let desired = egui::vec2(ui.available_width(), 22.0);
+    let desired = egui::vec2(ui.available_width(), 20.0);
     let (rect, resp) = ui.allocate_exact_size(desired, Sense::click());
 
     if ui.is_rect_visible(rect) {
         let painter = ui.painter();
+        let line_y  = rect.center().y;
 
-        if resp.hovered() || resp.is_pointer_button_down_on() {
-            painter.rect_filled(rect, 4.0, theme::BG_CARD_HI);
-        }
+        // Full-width rule
+        painter.hline(rect.x_range(), line_y, Stroke::new(1.0, theme::BORDER));
 
-        let arrow = if *open { "▾" } else { "▸" };
-        painter.text(
-            Pos2::new(rect.left() + 8.0, rect.center().y),
-            egui::Align2::LEFT_CENTER,
-            arrow,
-            egui::FontId::proportional(11.0),
-            theme::ACCENT,
+        let indicator = if *open { "-" } else { "+" };
+        let text = format!("[{indicator} {} ]", label.to_uppercase());
+        let font = egui::FontId::new(12.0, egui::FontFamily::Monospace);
+
+        // Measure, paint opaque bg to "cut" the rule behind the label
+        let galley  = painter.layout_no_wrap(text.clone(), font.clone(), theme::GREEN);
+        let text_w  = galley.size().x + 8.0;
+        let cut_rect = Rect::from_center_size(
+            Pos2::new(rect.left() + text_w / 2.0 + 4.0, line_y),
+            Vec2::new(text_w, rect.height()),
         );
+        painter.rect_filled(cut_rect, Rounding::ZERO, theme::BG_PANEL);
+
+        let col = if resp.hovered() { theme::GREEN } else { theme::GREEN_DIM };
         painter.text(
-            Pos2::new(rect.left() + 24.0, rect.center().y),
+            Pos2::new(rect.left() + 4.0, line_y),
             egui::Align2::LEFT_CENTER,
-            label,
-            egui::FontId::proportional(13.0),
-            theme::TEXT_STRONG,
+            text,
+            font,
+            col,
         );
     }
 
@@ -182,7 +168,7 @@ pub(super) fn effect_params_ui(ui: &mut egui::Ui, kind: &mut EffectKind) {
             ui.label("Contrast");
             ui.add(
                 egui::Slider::new(contrast, 0.1..=4.0)
-                    .custom_formatter(|v, _| format!("{v:.2}×")),
+                    .custom_formatter(|v, _| format!("{v:.2}x")),
             );
             ui.label("Gamma");
             ui.add(
@@ -236,7 +222,7 @@ pub(super) fn effect_params_ui(ui: &mut egui::Ui, kind: &mut EffectKind) {
             ui.label("Strength");
             ui.add(
                 egui::Slider::new(strength, 0.0..=3.0)
-                    .custom_formatter(|v, _| format!("{v:.2}×")),
+                    .custom_formatter(|v, _| format!("{v:.2}x")),
             );
         }
         EffectKind::Scanlines { spacing, opacity } => {
@@ -253,38 +239,37 @@ pub(super) fn effect_params_ui(ui: &mut egui::Ui, kind: &mut EffectKind) {
 
 // ── Tone curve widget ─────────────────────────────────────────────────────────
 
-/// Interactive tone-curve editor. Renders a square canvas with a draggable
-/// piecewise-linear curve over five evenly-spaced control points.
+/// Interactive tone-curve editor with phosphor-green styling.
 fn tone_curve_widget(ui: &mut egui::Ui, points: &mut [f32; 5]) {
     let size = ui.available_width().min(180.0);
     let (response, painter) = ui.allocate_painter(Vec2::splat(size), Sense::hover());
     let rect = response.rect;
 
-    // Background — deep, darker than card
-    painter.rect_filled(rect, 4.0, theme::BG_APP);
+    painter.rect_filled(rect, Rounding::ZERO, theme::BG);
+    painter.rect_stroke(rect, Rounding::ZERO, Stroke::new(1.0, theme::BORDER));
 
     // Grid lines
     for i in 1..4 {
         let t = i as f32 / 4.0;
         let x = rect.left() + t * rect.width();
-        let y = rect.top() + t * rect.height();
+        let y = rect.top()  + t * rect.height();
         painter.line_segment(
-            [Pos2::new(x, rect.top()), Pos2::new(x, rect.bottom())],
-            Stroke::new(0.5, theme::BORDER_SEP),
+            [Pos2::new(x, rect.top()),    Pos2::new(x, rect.bottom())],
+            Stroke::new(0.5, theme::GREEN_FAINT),
         );
         painter.line_segment(
-            [Pos2::new(rect.left(), y), Pos2::new(rect.right(), y)],
-            Stroke::new(0.5, theme::BORDER_SEP),
+            [Pos2::new(rect.left(), y),   Pos2::new(rect.right(), y)],
+            Stroke::new(0.5, theme::GREEN_FAINT),
         );
     }
 
     // Identity diagonal
     painter.line_segment(
         [rect.left_bottom(), rect.right_top()],
-        Stroke::new(0.5, theme::BORDER),
+        Stroke::new(0.5, theme::GREEN_DIM),
     );
 
-    // Curve (128 samples) — accent colour
+    // Curve (128 samples) — bright phosphor green
     let curve_pts: Vec<Pos2> = (0..=128)
         .map(|i| {
             let t = i as f32 / 128.0;
@@ -292,7 +277,7 @@ fn tone_curve_widget(ui: &mut egui::Ui, points: &mut [f32; 5]) {
             Pos2::new(rect.left() + t * rect.width(), rect.bottom() - v * rect.height())
         })
         .collect();
-    painter.add(egui::Shape::line(curve_pts, Stroke::new(1.5, theme::ACCENT)));
+    painter.add(egui::Shape::line(curve_pts, Stroke::new(1.5, theme::GREEN)));
 
     // Draggable control points
     const INPUTS: [f32; 5] = [0.0, 0.25, 0.5, 0.75, 1.0];
@@ -311,15 +296,15 @@ fn tone_curve_widget(ui: &mut egui::Ui, points: &mut [f32; 5]) {
         }
 
         let col = if cp_resp.hovered() || cp_resp.dragged() {
-            Color32::YELLOW
+            Color32::WHITE
         } else {
-            theme::TEXT_STRONG
+            theme::GREEN
         };
-        painter.circle_filled(cp, 5.0, col);
-        painter.circle_stroke(cp, 5.0, Stroke::new(1.0, theme::BORDER));
+        painter.circle_filled(cp, 4.0, col);
+        painter.circle_stroke(cp, 4.0, Stroke::new(1.0, theme::GREEN_DIM));
     }
 
-    if ui.small_button("Reset curve").clicked() {
+    if ui.small_button("reset curve").clicked() {
         *points = [0.0, 0.25, 0.5, 0.75, 1.0];
     }
 }
@@ -329,13 +314,13 @@ fn tone_curve_widget(ui: &mut egui::Ui, points: &mut [f32; 5]) {
 /// Human-readable label for the input downscale dimension selector.
 pub(super) fn input_dim_label(dim: u32) -> &'static str {
     match dim {
-        0 => "Full size",
-        128 => "128px",
-        256 => "256px",
-        512 => "512px",
+        0    => "full size",
+        128  => "128px",
+        256  => "256px",
+        512  => "512px",
         1024 => "1024px",
         2048 => "2048px",
-        _ => "Custom",
+        _    => "custom",
     }
 }
 

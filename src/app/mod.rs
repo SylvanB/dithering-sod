@@ -448,7 +448,7 @@ impl eframe::App for DitheringApp {
         egui::TopBottomPanel::top("top")
             .frame(
                 egui::Frame::none()
-                    .fill(ui::theme::BAR_FILL)
+                    .fill(ui::theme::BG)
                     .stroke(egui::Stroke::new(1.0, ui::theme::BORDER))
                     .inner_margin(egui::Margin { left: 12.0, right: 12.0, top: 5.0, bottom: 5.0 }),
             )
@@ -456,10 +456,9 @@ impl eframe::App for DitheringApp {
                 ui.horizontal(|ui| {
                     // Title
                     ui.label(
-                        RichText::new("Dithering Tool")
-                            .size(15.0)
-                            .color(ui::theme::ACCENT)
-                            .strong(),
+                        RichText::new("> dithering-tool")
+                            .monospace()
+                            .color(ui::theme::GREEN),
                     );
                     ui.separator();
 
@@ -547,14 +546,14 @@ impl eframe::App for DitheringApp {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if self.render_rx.is_some() {
                             ui.label(
-                                RichText::new("rendering…")
-                                    .color(ui::theme::ACCENT)
-                                    .italics()
+                                RichText::new("[ rendering... ]")
+                                    .monospace()
+                                    .color(ui::theme::GREEN)
                                     .small(),
                             );
                             ui.separator();
                         }
-                        ui.label(RichText::new(&self.status).color(ui::theme::TEXT_WEAK).small());
+                        ui.label(RichText::new(&self.status).color(ui::theme::GREEN_DIM).small());
                     });
                 });
             });
@@ -579,7 +578,7 @@ impl eframe::App for DitheringApp {
         egui::CentralPanel::default()
             .frame(
                 egui::Frame::none()
-                    .fill(ui::theme::BG_APP)
+                    .fill(ui::theme::BG)
                     .inner_margin(egui::Margin::same(0.0)),
             )
             .show(ctx, |ui| {
@@ -608,7 +607,7 @@ impl DitheringApp {
         let input_snap = self.input_max_dim;
 
         // Mode toggle card
-        ui::card(ui, |ui| {
+        ui::section(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.selectable_value(&mut self.mode, AppMode::Dither, "Dither");
                 ui.selectable_value(&mut self.mode, AppMode::Halftone, "Halftone");
@@ -656,7 +655,7 @@ impl DitheringApp {
     // ── Effects stack ─────────────────────────────────────────────────────────
 
     fn ui_effects_stack(&mut self, ui: &mut egui::Ui) {
-        ui::card(ui, |ui| {
+        ui::section(ui, |ui| {
             ui::section_header(ui, "Effects", &mut self.section_effects_open);
             if self.section_effects_open {
                 ui.add_space(4.0);
@@ -672,9 +671,9 @@ impl DitheringApp {
                         let label = RichText::new(e.kind.label())
                             .strong()
                             .color(if e.enabled {
-                                ui::theme::TEXT_STRONG
+                                ui::theme::GREEN
                             } else {
-                                ui::theme::TEXT_WEAK
+                                ui::theme::GREEN_DIM
                             });
                         ui.toggle_value(&mut e.open, label);
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -726,7 +725,7 @@ impl DitheringApp {
     }
 
     fn ui_palette_section(&mut self, ui: &mut egui::Ui) {
-        ui::card(ui, |ui| {
+        ui::section(ui, |ui| {
             ui::section_header(ui, "Palette", &mut self.section_palette_open);
             if self.section_palette_open {
             ui.add_space(4.0);
@@ -857,7 +856,7 @@ impl DitheringApp {
 
     fn ui_algorithm_section(&mut self, ui: &mut egui::Ui) {
         use crate::dither::{Algorithm, BayerSize};
-        ui::card(ui, |ui| {
+        ui::section(ui, |ui| {
             ui::section_header(ui, "Dithering", &mut self.section_algorithm_open);
             if self.section_algorithm_open {
                 ui.add_space(4.0);
@@ -919,7 +918,7 @@ impl DitheringApp {
 
     fn ui_halftone_controls(&mut self, ui: &mut egui::Ui) {
         use crate::halftone::DotShape;
-        ui::card(ui, |ui| {
+        ui::section(ui, |ui| {
             ui::section_header(ui, "Halftone", &mut self.section_algorithm_open);
             if self.section_algorithm_open {
                 ui.add_space(4.0);
@@ -981,7 +980,7 @@ impl DitheringApp {
     // ── View controls ─────────────────────────────────────────────────────────
 
     fn ui_view_controls(&mut self, ui: &mut egui::Ui) {
-        ui::card(ui, |ui| {
+        ui::section(ui, |ui| {
             ui::section_header(ui, "View", &mut self.section_view_open);
             if self.section_view_open {
                 ui.add_space(4.0);
@@ -1028,7 +1027,7 @@ impl DitheringApp {
                     } else {
                         (img.width(), img.height())
                     };
-                    ui.label(RichText::new(format!("→ {w}×{h}px")).color(ui::theme::TEXT_WEAK).small());
+                    ui.label(RichText::new(format!("→ {w}×{h}px")).color(ui::theme::GREEN_DIM).small());
                 }
                 ui.add_space(4.0);
 
@@ -1042,7 +1041,7 @@ impl DitheringApp {
                     });
                 ui.label(
                     RichText::new("Nearest-neighbour upscale on save")
-                        .color(ui::theme::TEXT_WEAK)
+                        .color(ui::theme::GREEN_DIM)
                         .small(),
                 );
             }
@@ -1057,46 +1056,43 @@ impl DitheringApp {
         if self.original.is_none() {
             ui.allocate_rect(available, egui::Sense::hover());
             let painter = ui.painter();
-            painter.rect_filled(available, 0.0, ui::theme::BG_APP);
+            painter.rect_filled(available, egui::Rounding::ZERO, ui::theme::BG);
 
-            let box_rect = egui::Rect::from_center_size(
-                available.center(),
-                egui::Vec2::new(300.0, 160.0),
-            );
-            painter.rect(
-                box_rect,
-                egui::Rounding::same(12.0),
-                ui::theme::BG_CARD,
-                egui::Stroke::new(1.5, ui::theme::BORDER),
-            );
-            painter.text(
-                box_rect.center() - egui::vec2(0.0, 32.0),
-                egui::Align2::CENTER_CENTER,
-                "⬇",
-                egui::FontId::proportional(36.0),
-                ui::theme::ACCENT,
-            );
-            painter.text(
-                box_rect.center() + egui::vec2(0.0, 10.0),
-                egui::Align2::CENTER_CENTER,
-                "Drop an image here",
-                egui::FontId::proportional(16.0),
-                ui::theme::TEXT_STRONG,
-            );
-            painter.text(
-                box_rect.center() + egui::vec2(0.0, 34.0),
-                egui::Align2::CENTER_CENTER,
-                "or use  Open Image  in the toolbar",
-                egui::FontId::proportional(12.0),
-                ui::theme::TEXT_WEAK,
-            );
+            let mono = egui::FontId::new(13.0, egui::FontFamily::Monospace);
+            let cx   = available.center();
+            let lh   = 20.0;
+            for (i, (line, col)) in [
+                ("> dithering-tool v0.1",          ui::theme::GREEN_DIM),
+                ("",                               ui::theme::GREEN_DIM),
+                ("> drop image file here",         ui::theme::GREEN),
+                ("> or: file > open image",        ui::theme::GREEN_DIM),
+                ("",                               ui::theme::GREEN_DIM),
+                ("_",                              ui::theme::GREEN),
+            ].iter().enumerate() {
+                painter.text(
+                    cx + egui::vec2(0.0, (i as f32 - 2.5) * lh),
+                    egui::Align2::CENTER_CENTER,
+                    *line,
+                    mono.clone(),
+                    *col,
+                );
+            }
             return;
         }
 
         match self.view_mode {
             ViewMode::Compare => self.draw_compare(ctx, ui, available),
-            ViewMode::Split => self.draw_split(ui),
-            ViewMode::Output => self.draw_output(ui),
+            ViewMode::Split   => self.draw_split(ui),
+            ViewMode::Output  => self.draw_output(ui),
+        }
+
+        // Scanline overlay — subtle CRT horizontal lines over the image
+        let painter   = ui.painter_at(available);
+        let scanline  = egui::Color32::from_rgba_premultiplied(0, 0, 0, 18);
+        let mut y     = available.top();
+        while y < available.bottom() {
+            painter.hline(available.x_range(), y, egui::Stroke::new(1.0, scanline));
+            y += 2.0;
         }
     }
 
@@ -1149,22 +1145,23 @@ impl DitheringApp {
             egui::Stroke::new(1.5, egui::Color32::from_gray(80)),
         );
 
+        let mono_sm = egui::FontId::new(11.0, egui::FontFamily::Monospace);
         if self.compare_pos > 0.08 {
             painter.text(
-                egui::Pos2::new(img_rect.left() + 8.0, img_rect.top() + 8.0),
+                egui::Pos2::new(img_rect.left() + 6.0, img_rect.top() + 6.0),
                 egui::Align2::LEFT_TOP,
-                "Original",
-                egui::FontId::proportional(12.0),
-                egui::Color32::from_rgba_premultiplied(0, 0, 0, 160),
+                "[ original ]",
+                mono_sm.clone(),
+                egui::Color32::from_rgba_premultiplied(0, 0, 0, 180),
             );
         }
         if self.compare_pos < 0.92 {
             painter.text(
-                egui::Pos2::new(img_rect.right() - 8.0, img_rect.top() + 8.0),
+                egui::Pos2::new(img_rect.right() - 6.0, img_rect.top() + 6.0),
                 egui::Align2::RIGHT_TOP,
-                "Output",
-                egui::FontId::proportional(12.0),
-                egui::Color32::from_rgba_premultiplied(0, 0, 0, 160),
+                "[ output ]",
+                mono_sm,
+                egui::Color32::from_rgba_premultiplied(0, 0, 0, 180),
             );
         }
 
@@ -1193,7 +1190,7 @@ impl DitheringApp {
                     if let Some(tex) = &self.original_tex {
                         let size = ui::tex_display_size(tex, self.zoom);
                         ui.vertical(|ui| {
-                            ui.label(RichText::new("Original").weak());
+                            ui.label(RichText::new("[ original ]").monospace().color(ui::theme::GREEN_DIM).small());
                             ui.add(egui::Image::new(tex).fit_to_exact_size(size));
                         });
                     }
@@ -1201,7 +1198,7 @@ impl DitheringApp {
                     if let Some(tex) = &self.dithered_tex {
                         let size = ui::tex_display_size(tex, self.zoom);
                         ui.vertical(|ui| {
-                            ui.label(RichText::new("Output").weak());
+                            ui.label(RichText::new("[ output ]").monospace().color(ui::theme::GREEN_DIM).small());
                             ui.add(
                                 egui::Image::new(tex)
                                     .fit_to_exact_size(size)
