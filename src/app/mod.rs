@@ -71,6 +71,10 @@ pub enum ViewMode {
 pub enum AppMode {
     Dither,
     Halftone,
+    /// Neither dither nor halftone — output is the effects stack alone, so
+    /// effects (e.g. film emulation) can be inspected without a
+    /// dither/halftone pass obscuring them.
+    Off,
 }
 
 // ── App state ─────────────────────────────────────────────────────────────────
@@ -312,6 +316,7 @@ impl DitheringApp {
             let dithered = match mode {
                 AppMode::Halftone => crate::halftone::apply_halftone(&pre, &halftone_params),
                 AppMode::Dither => crate::dither::apply_dither(&pre, &dither_params, &palette),
+                AppMode::Off => pre.clone(),
             };
 
             let _ = tx.send(RenderOutput { preprocessed: pre, dithered });
@@ -611,6 +616,7 @@ impl DitheringApp {
             ui.horizontal(|ui| {
                 ui.selectable_value(&mut self.mode, AppMode::Dither, "Dither");
                 ui.selectable_value(&mut self.mode, AppMode::Halftone, "Halftone");
+                ui.selectable_value(&mut self.mode, AppMode::Off, "None");
             });
         });
 
@@ -619,6 +625,11 @@ impl DitheringApp {
         match self.mode {
             AppMode::Dither => self.ui_dither_controls(ui),
             AppMode::Halftone => self.ui_halftone_controls(ui),
+            AppMode::Off => {
+                ui::section(ui, |ui| {
+                    ui.label("Dithering disabled — showing the effects stack output directly.");
+                });
+            }
         }
         self.ui_view_controls(ui);
 
