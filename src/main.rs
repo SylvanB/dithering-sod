@@ -6,6 +6,7 @@
 mod app;
 mod dither;
 mod effects;
+mod filmstock;
 mod halftone;
 mod palette;
 
