@@ -470,8 +470,12 @@ fn film_emulation(
             let (dmin, dmax) = ranges[ch];
             let frac = ((d - dmin) / (dmax - dmin)).clamp(0.0, 1.0);
             density_frac[i * 3 + ch] = frac;
-            // Negative density inverts to a positive display value.
-            curved[i * 3 + ch] = (1.0 - frac).clamp(0.0, 1.0);
+            // A negative's density rises with exposure, and printing it
+            // inverts that once — the two inversions of the real
+            // negative->print chain cancel out, so a brighter input scene
+            // should still end up brighter here; only the curve's shape
+            // and per-channel divergence should show through.
+            curved[i * 3 + ch] = frac;
         }
         luma_src[i] = luma / 3.0;
     }
