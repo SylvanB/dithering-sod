@@ -18,6 +18,9 @@ pub type CurvePoint = (f32, f32);
 
 /// Characteristic-curve and grain/halation data for one film stock.
 pub struct FilmStock {
+    /// Not read yet — only one stock exists, so nothing selects by name.
+    /// Kept so a future stock-picker UI doesn't need to touch this struct.
+    #[allow(dead_code)]
     pub name: &'static str,
 
     /// Status M density vs. log10 exposure, red / green / blue records

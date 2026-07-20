@@ -234,6 +234,45 @@ pub(super) fn effect_params_ui(ui: &mut egui::Ui, kind: &mut EffectKind) {
                     .custom_formatter(|v, _| format!("{:.0}%", v * 100.0)),
             );
         }
+        EffectKind::FilmEmulation {
+            exposure_ev,
+            grain_strength,
+            grain_size,
+            halation_strength,
+            halation_radius,
+            halation_threshold,
+        } => {
+            ui.label("Kodak Portra 400");
+            ui.label("Exposure");
+            ui.add(
+                egui::Slider::new(exposure_ev, -2.0..=2.0)
+                    .custom_formatter(|v, _| format!("{v:+.2} EV")),
+            );
+            ui.add_space(4.0);
+            ui.label("Grain strength");
+            ui.add(
+                egui::Slider::new(grain_strength, 0.0..=2.0)
+                    .custom_formatter(|v, _| format!("{v:.2}")),
+            );
+            ui.label("Grain size");
+            ui.add(
+                egui::Slider::new(grain_size, 0.5..=3.0)
+                    .custom_formatter(|v, _| format!("{v:.2}")),
+            );
+            ui.add_space(4.0);
+            ui.label("Halation strength");
+            ui.add(
+                egui::Slider::new(halation_strength, 0.0..=2.0)
+                    .custom_formatter(|v, _| format!("{v:.2}")),
+            );
+            ui.label("Halation radius");
+            ui.add(egui::Slider::new(halation_radius, 2..=64).suffix("px"));
+            ui.label("Halation threshold");
+            ui.add(
+                egui::Slider::new(halation_threshold, 0.0..=1.0)
+                    .custom_formatter(|v, _| format!("{:.0}%", v * 100.0)),
+            );
+        }
     }
 }
 

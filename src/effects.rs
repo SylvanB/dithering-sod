@@ -7,6 +7,8 @@
 use image::{DynamicImage, RgbImage};
 use serde::{Deserialize, Serialize};
 
+use crate::filmstock::{curve_range, eval_stock_curve, PORTRA_400};
+
 // ── Effect types ──────────────────────────────────────────────────────────────
 
 /// The type and parameters of a single effect in the stack.
@@ -46,6 +48,17 @@ pub enum EffectKind {
         spacing: u32, // 2–16 pixels
         opacity: f32, // 0.0–1.0
     },
+    /// Physically-modeled film emulation (currently hardcoded to Kodak
+    /// Portra 400 — see `crate::filmstock`): per-channel characteristic
+    /// curve, density-dependent grain, and highlight halation.
+    FilmEmulation {
+        exposure_ev: f32,        // -2.0–2.0 stops, shifts input along the curve's log-exposure axis
+        grain_strength: f32,     // 0.0–2.0 grain amplitude multiplier
+        grain_size: f32,         // 0.5–3.0 grain "clump" radius multiplier
+        halation_strength: f32,  // 0.0–2.0 bloom amplitude multiplier
+        halation_radius: u32,    // 2–64 px bloom blur radius
+        halation_threshold: f32, // 0.0–1.0 luminance above which halation blooms
+    },
 }
 
 impl EffectKind {
@@ -60,6 +73,14 @@ impl EffectKind {
             "curve"     => EffectKind::ToneCurve { points: [0.0, 0.25, 0.5, 0.75, 1.0] },
             "crtglow"   => EffectKind::CrtGlow { radius: 8, strength: 0.6 },
             "scanlines" => EffectKind::Scanlines { spacing: 4, opacity: 0.7 },
+            "film"      => EffectKind::FilmEmulation {
+                exposure_ev: 0.0,
+                grain_strength: 0.6,
+                grain_size: 1.0,
+                halation_strength: 0.5,
+                halation_radius: 12,
+                halation_threshold: 0.75,
+            },
             _           => EffectKind::BrightnessContrastGamma { brightness: 0.0, contrast: 1.0, gamma: 1.0 },
         }
     }
@@ -75,6 +96,7 @@ impl EffectKind {
             EffectKind::ToneCurve { .. }               => "Tone Curve",
             EffectKind::CrtGlow { .. }                 => "CRT Glow",
             EffectKind::Scanlines { .. }               => "Scanlines",
+            EffectKind::FilmEmulation { .. }           => "Film Emulation (Portra 400)",
         }
     }
 }
@@ -90,6 +112,7 @@ pub const EFFECT_NAMES: &[(&str, &str)] = &[
     ("chroma",    "Chromatic Aberration"),
     ("crtglow",   "CRT Glow"),
     ("scanlines", "Scanlines"),
+    ("film",      "Film Emulation (Portra 400)"),
 ];
 
 // ── Effect entry (data + UI state) ────────────────────────────────────────────
@@ -137,6 +160,13 @@ fn apply_one(img: &DynamicImage, kind: &EffectKind) -> DynamicImage {
         EffectKind::ToneCurve { points } => tone_curve(img, &points),
         EffectKind::CrtGlow { radius, strength } => crt_glow(img, radius, strength),
         EffectKind::Scanlines { spacing, opacity } => scanlines(img, spacing, opacity),
+        EffectKind::FilmEmulation {
+            exposure_ev, grain_strength, grain_size,
+            halation_strength, halation_radius, halation_threshold,
+        } => film_emulation(
+            img, exposure_ev, grain_strength, grain_size,
+            halation_strength, halation_radius, halation_threshold,
+        ),
     }
 }
 
@@ -378,4 +408,183 @@ fn chromatic_aberration(src: &DynamicImage, x_shift: f32, y_shift: f32) -> Dynam
         }
     }
     DynamicImage::ImageRgb8(out)
+}
+
+// ── Film emulation (Portra 400) ────────────────────────────────────────────────
+//
+// Physically-modeled pipeline, in order:
+//   1. Per-channel characteristic curve (density vs. log exposure) maps each
+//      input channel through Portra 400's actual H&D response, independently
+//      per channel — this is what produces the color-balance shift (warmth)
+//      and gentle, straight-line contrast, rather than a hand-tuned tint.
+//   2. Halation: scene brightness above `halation_threshold` blooms outward
+//      with a red-dominant tint, modeling light scattering through the film
+//      base and re-exposing the emulsion from behind.
+//   3. Grain: spatially-correlated per-channel noise whose amplitude follows
+//      Selwyn's law (RMS granularity ∝ sqrt(density)), so grain is
+//      near-absent in Dmin (shadow) regions and strongest where density is
+//      highest.
+//
+// See NOTES.md for what's derived from the Kodak Alaris E-4050 datasheet vs.
+// approximated, and `crate::filmstock` for the underlying curve data.
+
+const LOG10_2: f32 = 0.301_029_99;
+
+#[allow(clippy::too_many_arguments)]
+fn film_emulation(
+    src: &DynamicImage,
+    exposure_ev: f32,
+    grain_strength: f32,
+    grain_size: f32,
+    halation_strength: f32,
+    halation_radius: u32,
+    halation_threshold: f32,
+) -> DynamicImage {
+    let stock = &PORTRA_400;
+    let rgb = src.to_rgb8();
+    let (w, h) = rgb.dimensions();
+    let n = (w * h) as usize;
+
+    let curves = [stock.curve_r, stock.curve_g, stock.curve_b];
+    let ranges: Vec<(f32, f32)> = curves.iter().map(|c| curve_range(c)).collect();
+    let log_span = stock.log_e_max - stock.log_e_min;
+    // Input midtone (f=0.5) is anchored at the datasheet's sensitometric
+    // reference exposure (Log H Ref) rather than an arbitrary domain edge,
+    // so `exposure_ev` reads as stops of compensation around that reference.
+    let ev_shift = exposure_ev * LOG10_2;
+
+    // Pass 1: per-channel characteristic curve. Keeps each channel's density
+    // normalized to 0..1 within its own Dmin..Dmax for grain scaling later,
+    // and the pre-curve scene luminance as halation's bloom source.
+    let mut curved = vec![0f32; n * 3];
+    let mut density_frac = vec![0f32; n * 3];
+    let mut luma_src = vec![0f32; n];
+
+    for (i, px) in rgb.pixels().enumerate() {
+        let mut luma = 0.0;
+        for ch in 0..3 {
+            let f = px[ch] as f32 / 255.0;
+            luma += f;
+            let log_e = stock.log_h_ref + (f - 0.5) * log_span + ev_shift;
+            let d = eval_stock_curve(curves[ch], log_e);
+            let (dmin, dmax) = ranges[ch];
+            let frac = ((d - dmin) / (dmax - dmin)).clamp(0.0, 1.0);
+            density_frac[i * 3 + ch] = frac;
+            // Negative density inverts to a positive display value.
+            curved[i * 3 + ch] = (1.0 - frac).clamp(0.0, 1.0);
+        }
+        luma_src[i] = luma / 3.0;
+    }
+
+    // Pass 2: halation. The bloom source is scene brightness *before* the
+    // curve compresses it, since halation happens at the moment of exposure,
+    // and it's thresholded so only genuinely bright highlights punch through
+    // — mirroring the anti-halation backing suppressing all but the
+    // strongest light.
+    let denom = (1.0 - halation_threshold.min(0.98)).max(0.02);
+    let bloom_src: Vec<f32> = luma_src
+        .iter()
+        .map(|&l| ((l - halation_threshold) / denom).clamp(0.0, 1.0))
+        .collect();
+    let bloom = box_blur_f32(&bloom_src, w, h, halation_radius.max(1) as i32);
+
+    for i in 0..n {
+        for ch in 0..3 {
+            let add = halation_strength * bloom[i] * stock.halation_color[ch];
+            curved[i * 3 + ch] = (curved[i * 3 + ch] + add).clamp(0.0, 1.0);
+        }
+    }
+
+    // Pass 3: grain. Spatially-correlated Gaussian noise per channel, blurred
+    // to the channel's characteristic grain radius, then rescaled to unit std
+    // (box blur reduces variance; an empirical rescale keeps `grain_strength`
+    // meaningful across grain sizes) and modulated by sqrt(local density) per
+    // Selwyn's law.
+    let mut out = RgbImage::new(w, h);
+    for ch in 0..3usize {
+        let raw: Vec<f32> = (0..n)
+            .map(|i| {
+                let x = (i as u32) % w;
+                let y = (i as u32) / w;
+                gaussian_noise(x, y, ch as u32)
+            })
+            .collect();
+        let radius = (grain_size * stock.grain_radius[ch]).max(0.5).round() as i32;
+        let mut blurred = box_blur_f32(&raw, w, h, radius);
+
+        let mean: f32 = blurred.iter().sum::<f32>() / n as f32;
+        let var: f32 = blurred.iter().map(|v| (v - mean) * (v - mean)).sum::<f32>() / n as f32;
+        let std = var.sqrt().max(1e-6);
+        for v in blurred.iter_mut() {
+            *v = (*v - mean) / std;
+        }
+
+        const GRAIN_SCALE: f32 = 0.10;
+        for (i, item) in blurred.iter().enumerate() {
+            let frac = density_frac[i * 3 + ch];
+            let g = item * grain_strength * stock.grain_weight[ch] * frac.sqrt() * GRAIN_SCALE;
+            let v = (curved[i * 3 + ch] + g).clamp(0.0, 1.0);
+            let px = out.get_pixel_mut(i as u32 % w, i as u32 / w);
+            px[ch] = (v * 255.0).round() as u8;
+        }
+    }
+
+    DynamicImage::ImageRgb8(out)
+}
+
+/// Separable box blur over a single-channel f32 buffer, clamp-to-edge.
+fn box_blur_f32(buf: &[f32], w: u32, h: u32, radius: i32) -> Vec<f32> {
+    let r = radius.max(1);
+    let diam = (2 * r + 1) as f32;
+
+    let mut horiz = vec![0f32; buf.len()];
+    for y in 0..h {
+        for x in 0..w {
+            let mut s = 0f32;
+            for dx in -r..=r {
+                let nx = (x as i32 + dx).clamp(0, w as i32 - 1) as u32;
+                s += buf[(y * w + nx) as usize];
+            }
+            horiz[(y * w + x) as usize] = s / diam;
+        }
+    }
+
+    let mut vert = vec![0f32; buf.len()];
+    for y in 0..h {
+        for x in 0..w {
+            let mut s = 0f32;
+            for dy in -r..=r {
+                let ny = (y as i32 + dy).clamp(0, h as i32 - 1) as u32;
+                s += horiz[(ny * w + x) as usize];
+            }
+            vert[(y * w + x) as usize] = s / diam;
+        }
+    }
+    vert
+}
+
+/// Deterministic hash-based pseudo-random unit-Gaussian sample for pixel
+/// `(x, y)` on channel `ch` — avoids a `rand` crate dependency while staying
+/// reproducible run-to-run (same input image always grains identically).
+fn gaussian_noise(x: u32, y: u32, ch: u32) -> f32 {
+    let seed = x
+        .wrapping_mul(374_761_393)
+        .wrapping_add(y.wrapping_mul(668_265_263))
+        .wrapping_add(ch.wrapping_mul(2_246_822_519));
+    let u1 = rand01(seed).max(1e-6);
+    let u2 = rand01(hash_u32(seed ^ 0x9E37_79B9));
+    (-2.0 * u1.ln()).sqrt() * (std::f32::consts::TAU * u2).cos()
+}
+
+fn hash_u32(mut x: u32) -> u32 {
+    x ^= x >> 16;
+    x = x.wrapping_mul(0x7feb_352d);
+    x ^= x >> 15;
+    x = x.wrapping_mul(0x846c_a68b);
+    x ^= x >> 16;
+    x
+}
+
+fn rand01(seed: u32) -> f32 {
+    (hash_u32(seed) as f32) / (u32::MAX as f32)
 }
