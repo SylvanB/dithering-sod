@@ -39,7 +39,10 @@ impl Palette {
     fn from_u8s(name: &'static str, raw: &[[u8; 3]]) -> Self {
         Self {
             name,
-            colors: raw.iter().map(|&[r, g, b]| [r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0]).collect(),
+            colors: raw
+                .iter()
+                .map(|&[r, g, b]| [r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0])
+                .collect(),
         }
     }
 
@@ -108,188 +111,224 @@ impl PaletteKind {
 
     pub fn name(&self) -> &'static str {
         match self {
-            PaletteKind::GrayRamp2    => "1-bit (B&W)",
-            PaletteKind::GrayRamp4    => "2-bit Gray (4)",
-            PaletteKind::GrayRamp8    => "3-bit Gray (8)",
-            PaletteKind::GrayRamp16   => "4-bit Gray (16)",
-            PaletteKind::GameBoy      => "Game Boy",
+            PaletteKind::GrayRamp2 => "1-bit (B&W)",
+            PaletteKind::GrayRamp4 => "2-bit Gray (4)",
+            PaletteKind::GrayRamp8 => "3-bit Gray (8)",
+            PaletteKind::GrayRamp16 => "4-bit Gray (16)",
+            PaletteKind::GameBoy => "Game Boy",
             PaletteKind::GameBoyPocket => "Game Boy Pocket",
-            PaletteKind::CgaMode1     => "CGA Mode 4 (Cyan/Magenta)",
-            PaletteKind::CgaMode2     => "CGA Mode 5 (Red/Cyan)",
-            PaletteKind::Pico8        => "PICO-8",
-            PaletteKind::C64          => "Commodore 64",
-            PaletteKind::ZxSpectrum   => "ZX Spectrum",
-            PaletteKind::Ega          => "EGA",
-            PaletteKind::AppleII      => "Apple II",
-            PaletteKind::Teletext     => "Teletext",
-            PaletteKind::Amber        => "Amber Phosphor",
+            PaletteKind::CgaMode1 => "CGA Mode 4 (Cyan/Magenta)",
+            PaletteKind::CgaMode2 => "CGA Mode 5 (Red/Cyan)",
+            PaletteKind::Pico8 => "PICO-8",
+            PaletteKind::C64 => "Commodore 64",
+            PaletteKind::ZxSpectrum => "ZX Spectrum",
+            PaletteKind::Ega => "EGA",
+            PaletteKind::AppleII => "Apple II",
+            PaletteKind::Teletext => "Teletext",
+            PaletteKind::Amber => "Amber Phosphor",
             PaletteKind::GreenPhosphor => "Green Phosphor",
-            PaletteKind::Extracted    => "From Image (extracted)",
-            PaletteKind::Custom       => "Custom",
+            PaletteKind::Extracted => "From Image (extracted)",
+            PaletteKind::Custom => "Custom",
         }
     }
 
     pub fn build(&self) -> Palette {
         match self {
-            PaletteKind::GrayRamp2  => Palette::gray_ramp(2),
-            PaletteKind::GrayRamp4  => Palette::gray_ramp(4),
-            PaletteKind::GrayRamp8  => Palette::gray_ramp(8),
+            PaletteKind::GrayRamp2 => Palette::gray_ramp(2),
+            PaletteKind::GrayRamp4 => Palette::gray_ramp(4),
+            PaletteKind::GrayRamp8 => Palette::gray_ramp(8),
             PaletteKind::GrayRamp16 => Palette::gray_ramp(16),
 
-            PaletteKind::GameBoy => Palette::from_u8s("Game Boy", &[
-                [0x9b, 0xbc, 0x0f],
-                [0x8b, 0xac, 0x0f],
-                [0x30, 0x62, 0x30],
-                [0x0f, 0x38, 0x0f],
-            ]),
+            PaletteKind::GameBoy => Palette::from_u8s(
+                "Game Boy",
+                &[
+                    [0x9b, 0xbc, 0x0f],
+                    [0x8b, 0xac, 0x0f],
+                    [0x30, 0x62, 0x30],
+                    [0x0f, 0x38, 0x0f],
+                ],
+            ),
 
-            PaletteKind::GameBoyPocket => Palette::from_u8s("Game Boy Pocket", &[
-                [0xc4, 0xcf, 0xa1],
-                [0x8b, 0x95, 0x6d],
-                [0x4d, 0x54, 0x3d],
-                [0x1f, 0x1f, 0x1f],
-            ]),
+            PaletteKind::GameBoyPocket => Palette::from_u8s(
+                "Game Boy Pocket",
+                &[
+                    [0xc4, 0xcf, 0xa1],
+                    [0x8b, 0x95, 0x6d],
+                    [0x4d, 0x54, 0x3d],
+                    [0x1f, 0x1f, 0x1f],
+                ],
+            ),
 
-            PaletteKind::CgaMode1 => Palette::from_u8s("CGA Mode 4", &[
-                [0x00, 0x00, 0x00],
-                [0x00, 0xaa, 0xaa],
-                [0xaa, 0x00, 0xaa],
-                [0xaa, 0xaa, 0xaa],
-            ]),
+            PaletteKind::CgaMode1 => Palette::from_u8s(
+                "CGA Mode 4",
+                &[
+                    [0x00, 0x00, 0x00],
+                    [0x00, 0xaa, 0xaa],
+                    [0xaa, 0x00, 0xaa],
+                    [0xaa, 0xaa, 0xaa],
+                ],
+            ),
 
-            PaletteKind::CgaMode2 => Palette::from_u8s("CGA Mode 5", &[
-                [0x00, 0x00, 0x00],
-                [0x00, 0xaa, 0xaa],
-                [0xaa, 0x00, 0x00],
-                [0xaa, 0xaa, 0xaa],
-            ]),
+            PaletteKind::CgaMode2 => Palette::from_u8s(
+                "CGA Mode 5",
+                &[
+                    [0x00, 0x00, 0x00],
+                    [0x00, 0xaa, 0xaa],
+                    [0xaa, 0x00, 0x00],
+                    [0xaa, 0xaa, 0xaa],
+                ],
+            ),
 
-            PaletteKind::Pico8 => Palette::from_u8s("PICO-8", &[
-                [0x00, 0x00, 0x00],
-                [0x1d, 0x2b, 0x53],
-                [0x7e, 0x25, 0x53],
-                [0x00, 0x87, 0x51],
-                [0xab, 0x52, 0x36],
-                [0x5f, 0x57, 0x4f],
-                [0xc2, 0xc3, 0xc7],
-                [0xff, 0xf1, 0xe8],
-                [0xff, 0x00, 0x4d],
-                [0xff, 0xa3, 0x00],
-                [0xff, 0xec, 0x27],
-                [0x00, 0xe4, 0x36],
-                [0x29, 0xad, 0xff],
-                [0x83, 0x76, 0x9c],
-                [0xff, 0x77, 0xa8],
-                [0xff, 0xcc, 0xaa],
-            ]),
+            PaletteKind::Pico8 => Palette::from_u8s(
+                "PICO-8",
+                &[
+                    [0x00, 0x00, 0x00],
+                    [0x1d, 0x2b, 0x53],
+                    [0x7e, 0x25, 0x53],
+                    [0x00, 0x87, 0x51],
+                    [0xab, 0x52, 0x36],
+                    [0x5f, 0x57, 0x4f],
+                    [0xc2, 0xc3, 0xc7],
+                    [0xff, 0xf1, 0xe8],
+                    [0xff, 0x00, 0x4d],
+                    [0xff, 0xa3, 0x00],
+                    [0xff, 0xec, 0x27],
+                    [0x00, 0xe4, 0x36],
+                    [0x29, 0xad, 0xff],
+                    [0x83, 0x76, 0x9c],
+                    [0xff, 0x77, 0xa8],
+                    [0xff, 0xcc, 0xaa],
+                ],
+            ),
 
-            PaletteKind::C64 => Palette::from_u8s("C64", &[
-                [0x00, 0x00, 0x00],
-                [0xff, 0xff, 0xff],
-                [0x88, 0x00, 0x00],
-                [0xaa, 0xff, 0xee],
-                [0xcc, 0x44, 0xcc],
-                [0x00, 0xcc, 0x55],
-                [0x00, 0x00, 0xaa],
-                [0xee, 0xee, 0x77],
-                [0xdd, 0x88, 0x55],
-                [0x66, 0x44, 0x00],
-                [0xff, 0x77, 0x77],
-                [0x33, 0x33, 0x33],
-                [0x77, 0x77, 0x77],
-                [0xaa, 0xff, 0x66],
-                [0x00, 0x88, 0xff],
-                [0xbb, 0xbb, 0xbb],
-            ]),
+            PaletteKind::C64 => Palette::from_u8s(
+                "C64",
+                &[
+                    [0x00, 0x00, 0x00],
+                    [0xff, 0xff, 0xff],
+                    [0x88, 0x00, 0x00],
+                    [0xaa, 0xff, 0xee],
+                    [0xcc, 0x44, 0xcc],
+                    [0x00, 0xcc, 0x55],
+                    [0x00, 0x00, 0xaa],
+                    [0xee, 0xee, 0x77],
+                    [0xdd, 0x88, 0x55],
+                    [0x66, 0x44, 0x00],
+                    [0xff, 0x77, 0x77],
+                    [0x33, 0x33, 0x33],
+                    [0x77, 0x77, 0x77],
+                    [0xaa, 0xff, 0x66],
+                    [0x00, 0x88, 0xff],
+                    [0xbb, 0xbb, 0xbb],
+                ],
+            ),
 
-            PaletteKind::ZxSpectrum => Palette::from_u8s("ZX Spectrum", &[
-                [0x00, 0x00, 0x00],
-                [0x00, 0x00, 0xd7],
-                [0xd7, 0x00, 0x00],
-                [0xd7, 0x00, 0xd7],
-                [0x00, 0xd7, 0x00],
-                [0x00, 0xd7, 0xd7],
-                [0xd7, 0xd7, 0x00],
-                [0xd7, 0xd7, 0xd7],
-                [0x00, 0x00, 0xff],
-                [0xff, 0x00, 0x00],
-                [0xff, 0x00, 0xff],
-                [0x00, 0xff, 0x00],
-                [0x00, 0xff, 0xff],
-                [0xff, 0xff, 0x00],
-                [0xff, 0xff, 0xff],
-            ]),
+            PaletteKind::ZxSpectrum => Palette::from_u8s(
+                "ZX Spectrum",
+                &[
+                    [0x00, 0x00, 0x00],
+                    [0x00, 0x00, 0xd7],
+                    [0xd7, 0x00, 0x00],
+                    [0xd7, 0x00, 0xd7],
+                    [0x00, 0xd7, 0x00],
+                    [0x00, 0xd7, 0xd7],
+                    [0xd7, 0xd7, 0x00],
+                    [0xd7, 0xd7, 0xd7],
+                    [0x00, 0x00, 0xff],
+                    [0xff, 0x00, 0x00],
+                    [0xff, 0x00, 0xff],
+                    [0x00, 0xff, 0x00],
+                    [0x00, 0xff, 0xff],
+                    [0xff, 0xff, 0x00],
+                    [0xff, 0xff, 0xff],
+                ],
+            ),
 
-            PaletteKind::Ega => Palette::from_u8s("EGA", &[
-                [0x00, 0x00, 0x00],
-                [0x00, 0x00, 0xaa],
-                [0x00, 0xaa, 0x00],
-                [0x00, 0xaa, 0xaa],
-                [0xaa, 0x00, 0x00],
-                [0xaa, 0x00, 0xaa],
-                [0xaa, 0x55, 0x00],
-                [0xaa, 0xaa, 0xaa],
-                [0x55, 0x55, 0x55],
-                [0x55, 0x55, 0xff],
-                [0x55, 0xff, 0x55],
-                [0x55, 0xff, 0xff],
-                [0xff, 0x55, 0x55],
-                [0xff, 0x55, 0xff],
-                [0xff, 0xff, 0x55],
-                [0xff, 0xff, 0xff],
-            ]),
+            PaletteKind::Ega => Palette::from_u8s(
+                "EGA",
+                &[
+                    [0x00, 0x00, 0x00],
+                    [0x00, 0x00, 0xaa],
+                    [0x00, 0xaa, 0x00],
+                    [0x00, 0xaa, 0xaa],
+                    [0xaa, 0x00, 0x00],
+                    [0xaa, 0x00, 0xaa],
+                    [0xaa, 0x55, 0x00],
+                    [0xaa, 0xaa, 0xaa],
+                    [0x55, 0x55, 0x55],
+                    [0x55, 0x55, 0xff],
+                    [0x55, 0xff, 0x55],
+                    [0x55, 0xff, 0xff],
+                    [0xff, 0x55, 0x55],
+                    [0xff, 0x55, 0xff],
+                    [0xff, 0xff, 0x55],
+                    [0xff, 0xff, 0xff],
+                ],
+            ),
 
-            PaletteKind::AppleII => Palette::from_u8s("Apple II", &[
-                [0x00, 0x00, 0x00],
-                [0x72, 0x26, 0x40],
-                [0x40, 0x33, 0x7f],
-                [0xe4, 0x34, 0xfe],
-                [0x0e, 0x59, 0x40],
-                [0x80, 0x80, 0x80],
-                [0x1b, 0x52, 0xf5],
-                [0xbf, 0xbf, 0xfb],
-                [0x40, 0x40, 0x01],
-                [0xe4, 0x60, 0x0a],
-                [0x80, 0x80, 0x80],
-                [0xfe, 0xac, 0x80],
-                [0x1b, 0xcb, 0x01],
-                [0x80, 0xfe, 0x81],
-                [0xbc, 0xca, 0x40],
-                [0xff, 0xff, 0xff],
-            ]),
+            PaletteKind::AppleII => Palette::from_u8s(
+                "Apple II",
+                &[
+                    [0x00, 0x00, 0x00],
+                    [0x72, 0x26, 0x40],
+                    [0x40, 0x33, 0x7f],
+                    [0xe4, 0x34, 0xfe],
+                    [0x0e, 0x59, 0x40],
+                    [0x80, 0x80, 0x80],
+                    [0x1b, 0x52, 0xf5],
+                    [0xbf, 0xbf, 0xfb],
+                    [0x40, 0x40, 0x01],
+                    [0xe4, 0x60, 0x0a],
+                    [0x80, 0x80, 0x80],
+                    [0xfe, 0xac, 0x80],
+                    [0x1b, 0xcb, 0x01],
+                    [0x80, 0xfe, 0x81],
+                    [0xbc, 0xca, 0x40],
+                    [0xff, 0xff, 0xff],
+                ],
+            ),
 
-            PaletteKind::Teletext => Palette::from_u8s("Teletext", &[
-                [0x00, 0x00, 0x00],
-                [0xff, 0x00, 0x00],
-                [0x00, 0xff, 0x00],
-                [0xff, 0xff, 0x00],
-                [0x00, 0x00, 0xff],
-                [0xff, 0x00, 0xff],
-                [0x00, 0xff, 0xff],
-                [0xff, 0xff, 0xff],
-            ]),
+            PaletteKind::Teletext => Palette::from_u8s(
+                "Teletext",
+                &[
+                    [0x00, 0x00, 0x00],
+                    [0xff, 0x00, 0x00],
+                    [0x00, 0xff, 0x00],
+                    [0xff, 0xff, 0x00],
+                    [0x00, 0x00, 0xff],
+                    [0xff, 0x00, 0xff],
+                    [0x00, 0xff, 0xff],
+                    [0xff, 0xff, 0xff],
+                ],
+            ),
 
-            PaletteKind::Amber => Palette::from_u8s("Amber Phosphor", &[
-                [0x00, 0x00, 0x00],
-                [0x2a, 0x10, 0x00],
-                [0x55, 0x20, 0x00],
-                [0x7f, 0x40, 0x00],
-                [0xaa, 0x60, 0x00],
-                [0xd4, 0x88, 0x00],
-                [0xff, 0xb0, 0x00],
-                [0xff, 0xd8, 0x55],
-            ]),
+            PaletteKind::Amber => Palette::from_u8s(
+                "Amber Phosphor",
+                &[
+                    [0x00, 0x00, 0x00],
+                    [0x2a, 0x10, 0x00],
+                    [0x55, 0x20, 0x00],
+                    [0x7f, 0x40, 0x00],
+                    [0xaa, 0x60, 0x00],
+                    [0xd4, 0x88, 0x00],
+                    [0xff, 0xb0, 0x00],
+                    [0xff, 0xd8, 0x55],
+                ],
+            ),
 
-            PaletteKind::GreenPhosphor => Palette::from_u8s("Green Phosphor", &[
-                [0x00, 0x00, 0x00],
-                [0x00, 0x1a, 0x00],
-                [0x00, 0x33, 0x00],
-                [0x00, 0x4d, 0x00],
-                [0x00, 0x66, 0x00],
-                [0x00, 0x99, 0x00],
-                [0x00, 0xcc, 0x00],
-                [0x33, 0xff, 0x33],
-            ]),
+            PaletteKind::GreenPhosphor => Palette::from_u8s(
+                "Green Phosphor",
+                &[
+                    [0x00, 0x00, 0x00],
+                    [0x00, 0x1a, 0x00],
+                    [0x00, 0x33, 0x00],
+                    [0x00, 0x4d, 0x00],
+                    [0x00, 0x66, 0x00],
+                    [0x00, 0x99, 0x00],
+                    [0x00, 0xcc, 0x00],
+                    [0x33, 0xff, 0x33],
+                ],
+            ),
 
             // Extracted and Custom are resolved externally in app state; fallback to gray
             PaletteKind::Extracted | PaletteKind::Custom => Palette::gray_ramp(16),
@@ -327,9 +366,7 @@ pub fn extract_palette(img: &DynamicImage, num_colors: usize) -> Palette {
                 continue;
             }
             let (rmin, rmax, gmin, gmax, bmin, bmax) = bucket_range(bucket);
-            let range = (rmax - rmin)
-                .max(gmax - gmin)
-                .max(bmax - bmin) as u16;
+            let range = (rmax - rmin).max(gmax - gmin).max(bmax - bmin) as u16;
             if range > best_range {
                 best_range = range;
                 best_idx = i;
@@ -381,16 +418,22 @@ pub fn extract_palette(img: &DynamicImage, num_colors: usize) -> Palette {
         la.partial_cmp(&lb).unwrap_or(std::cmp::Ordering::Equal)
     });
 
-    Palette { name: "Extracted", colors }
+    Palette {
+        name: "Extracted",
+        colors,
+    }
 }
 
 fn bucket_range(bucket: &[[u8; 3]]) -> (u8, u8, u8, u8, u8, u8) {
     let (mut rmin, mut gmin, mut bmin) = (255u8, 255u8, 255u8);
     let (mut rmax, mut gmax, mut bmax) = (0u8, 0u8, 0u8);
     for &[r, g, b] in bucket {
-        rmin = rmin.min(r); rmax = rmax.max(r);
-        gmin = gmin.min(g); gmax = gmax.max(g);
-        bmin = bmin.min(b); bmax = bmax.max(b);
+        rmin = rmin.min(r);
+        rmax = rmax.max(r);
+        gmin = gmin.min(g);
+        gmax = gmax.max(g);
+        bmin = bmin.min(b);
+        bmax = bmax.max(b);
     }
     (rmin, rmax, gmin, gmax, bmin, bmax)
 }
@@ -420,13 +463,24 @@ pub fn load_gpl(path: &std::path::Path) -> Result<Vec<[f32; 3]>, String> {
     let mut past_header = false;
     for line in text.lines() {
         let line = line.trim();
-        if line == "#" { past_header = true; continue; }
-        if !past_header || line.starts_with('#') || line.is_empty() { continue; }
+        if line == "#" {
+            past_header = true;
+            continue;
+        }
+        if !past_header || line.starts_with('#') || line.is_empty() {
+            continue;
+        }
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() >= 3 {
-            let r: u8 = parts[0].parse().map_err(|e: std::num::ParseIntError| e.to_string())?;
-            let g: u8 = parts[1].parse().map_err(|e: std::num::ParseIntError| e.to_string())?;
-            let b: u8 = parts[2].parse().map_err(|e: std::num::ParseIntError| e.to_string())?;
+            let r: u8 = parts[0]
+                .parse()
+                .map_err(|e: std::num::ParseIntError| e.to_string())?;
+            let g: u8 = parts[1]
+                .parse()
+                .map_err(|e: std::num::ParseIntError| e.to_string())?;
+            let b: u8 = parts[2]
+                .parse()
+                .map_err(|e: std::num::ParseIntError| e.to_string())?;
             colors.push([r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0]);
         }
     }

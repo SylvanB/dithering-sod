@@ -15,15 +15,15 @@ use crate::effects::{eval_curve, EffectKind};
 pub(super) mod theme {
     use egui::Color32;
 
-    pub const BG:             Color32 = Color32::from_rgb(0x05, 0x0a, 0x05);
-    pub const BG_PANEL:       Color32 = Color32::from_rgb(0x07, 0x0c, 0x07);
-    pub const BG_WIDGET:      Color32 = Color32::from_rgb(0x0c, 0x16, 0x0c);
-    pub const BG_WIDGET_HI:   Color32 = Color32::from_rgb(0x14, 0x20, 0x14);
-    pub const GREEN:          Color32 = Color32::from_rgb(0x33, 0xff, 0x77);
-    pub const GREEN_DIM:      Color32 = Color32::from_rgb(0x1a, 0x66, 0x33);
-    pub const GREEN_FAINT:    Color32 = Color32::from_rgb(0x0c, 0x24, 0x14);
-    pub const BORDER:         Color32 = Color32::from_rgb(0x1a, 0x4a, 0x1a);
-    pub const BORDER_BRIGHT:  Color32 = Color32::from_rgb(0x33, 0xff, 0x77);
+    pub const BG: Color32 = Color32::from_rgb(0x05, 0x0a, 0x05);
+    pub const BG_PANEL: Color32 = Color32::from_rgb(0x07, 0x0c, 0x07);
+    pub const BG_WIDGET: Color32 = Color32::from_rgb(0x0c, 0x16, 0x0c);
+    pub const BG_WIDGET_HI: Color32 = Color32::from_rgb(0x14, 0x20, 0x14);
+    pub const GREEN: Color32 = Color32::from_rgb(0x33, 0xff, 0x77);
+    pub const GREEN_DIM: Color32 = Color32::from_rgb(0x1a, 0x66, 0x33);
+    pub const GREEN_FAINT: Color32 = Color32::from_rgb(0x0c, 0x24, 0x14);
+    pub const BORDER: Color32 = Color32::from_rgb(0x1a, 0x4a, 0x1a);
+    pub const BORDER_BRIGHT: Color32 = Color32::from_rgb(0x33, 0xff, 0x77);
 }
 
 // ── Global visuals setup ──────────────────────────────────────────────────────
@@ -35,79 +35,87 @@ pub(super) fn setup_visuals(ctx: &egui::Context) {
 
     let mut v = Visuals::dark();
 
-    v.override_text_color  = Some(theme::GREEN);
-    v.panel_fill           = theme::BG_PANEL;
-    v.window_fill          = theme::BG;
-    v.extreme_bg_color     = theme::BG;
-    v.faint_bg_color       = theme::BG_WIDGET;
-    v.code_bg_color        = theme::BG_WIDGET;
-    v.hyperlink_color      = theme::GREEN;
-    v.selection.bg_fill    = theme::BG_WIDGET_HI;
-    v.selection.stroke     = Stroke::new(1.0, theme::GREEN);
+    v.override_text_color = Some(theme::GREEN);
+    v.panel_fill = theme::BG_PANEL;
+    v.window_fill = theme::BG;
+    v.extreme_bg_color = theme::BG;
+    v.faint_bg_color = theme::BG_WIDGET;
+    v.code_bg_color = theme::BG_WIDGET;
+    v.hyperlink_color = theme::GREEN;
+    v.selection.bg_fill = theme::BG_WIDGET_HI;
+    v.selection.stroke = Stroke::new(1.0, theme::GREEN);
 
     let zero = Rounding::ZERO;
 
     v.widgets.noninteractive = egui::style::WidgetVisuals {
-        bg_fill: theme::BG_WIDGET, weak_bg_fill: theme::BG_WIDGET,
+        bg_fill: theme::BG_WIDGET,
+        weak_bg_fill: theme::BG_WIDGET,
         bg_stroke: Stroke::new(1.0, theme::BORDER),
         fg_stroke: Stroke::new(1.0, theme::GREEN_DIM),
-        rounding: zero, expansion: 0.0,
+        rounding: zero,
+        expansion: 0.0,
     };
     v.widgets.inactive = egui::style::WidgetVisuals {
-        bg_fill: theme::BG_WIDGET, weak_bg_fill: theme::BG_WIDGET,
+        bg_fill: theme::BG_WIDGET,
+        weak_bg_fill: theme::BG_WIDGET,
         bg_stroke: Stroke::new(1.0, theme::BORDER),
         fg_stroke: Stroke::new(1.0, theme::GREEN),
-        rounding: zero, expansion: 0.0,
+        rounding: zero,
+        expansion: 0.0,
     };
     v.widgets.hovered = egui::style::WidgetVisuals {
-        bg_fill: theme::BG_WIDGET_HI, weak_bg_fill: theme::BG_WIDGET_HI,
+        bg_fill: theme::BG_WIDGET_HI,
+        weak_bg_fill: theme::BG_WIDGET_HI,
         bg_stroke: Stroke::new(1.0, theme::BORDER_BRIGHT),
         fg_stroke: Stroke::new(1.5, theme::GREEN),
-        rounding: zero, expansion: 0.0,
+        rounding: zero,
+        expansion: 0.0,
     };
     v.widgets.active = egui::style::WidgetVisuals {
-        bg_fill: theme::BG_WIDGET, weak_bg_fill: theme::BG_WIDGET,
+        bg_fill: theme::BG_WIDGET,
+        weak_bg_fill: theme::BG_WIDGET,
         bg_stroke: Stroke::new(1.5, theme::BORDER_BRIGHT),
         fg_stroke: Stroke::new(2.0, theme::GREEN),
-        rounding: zero, expansion: 0.0,
+        rounding: zero,
+        expansion: 0.0,
     };
     v.widgets.open = egui::style::WidgetVisuals {
-        bg_fill: theme::BG_WIDGET_HI, weak_bg_fill: theme::BG_WIDGET_HI,
+        bg_fill: theme::BG_WIDGET_HI,
+        weak_bg_fill: theme::BG_WIDGET_HI,
         bg_stroke: Stroke::new(1.0, theme::BORDER_BRIGHT),
         fg_stroke: Stroke::new(1.5, theme::GREEN),
-        rounding: zero, expansion: 0.0,
+        rounding: zero,
+        expansion: 0.0,
     };
 
     ctx.set_visuals(v);
 
     ctx.style_mut(|s: &mut Style| {
         s.text_styles = BTreeMap::from([
-            (TextStyle::Body,      FontId::new(13.0, Monospace)),
-            (TextStyle::Button,    FontId::new(13.0, Monospace)),
-            (TextStyle::Heading,   FontId::new(14.0, Monospace)),
-            (TextStyle::Small,     FontId::new(11.0, Monospace)),
+            (TextStyle::Body, FontId::new(13.0, Monospace)),
+            (TextStyle::Button, FontId::new(13.0, Monospace)),
+            (TextStyle::Heading, FontId::new(14.0, Monospace)),
+            (TextStyle::Small, FontId::new(11.0, Monospace)),
             (TextStyle::Monospace, FontId::new(13.0, Monospace)),
         ]);
         s.spacing.button_padding = egui::vec2(6.0, 3.0);
-        s.spacing.item_spacing   = egui::vec2(4.0, 3.0);
+        s.spacing.item_spacing = egui::vec2(4.0, 3.0);
     });
 }
 
 // ── Section helpers ───────────────────────────────────────────────────────────
 
 /// Wraps a section body with minimal vertical spacing and a faint bottom rule.
-pub(super) fn section<R>(
-    ui: &mut egui::Ui,
-    add_contents: impl FnOnce(&mut egui::Ui) -> R,
-) -> R {
+pub(super) fn section<R>(ui: &mut egui::Ui, add_contents: impl FnOnce(&mut egui::Ui) -> R) -> R {
     ui.add_space(4.0);
     let result = add_contents(ui);
     ui.add_space(4.0);
-    let (rect, _) = ui.allocate_exact_size(
-        egui::vec2(ui.available_width(), 1.0),
-        Sense::hover(),
+    let (rect, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 1.0), Sense::hover());
+    ui.painter().hline(
+        rect.x_range(),
+        rect.center().y,
+        Stroke::new(1.0, theme::BORDER),
     );
-    ui.painter().hline(rect.x_range(), rect.center().y, Stroke::new(1.0, theme::BORDER));
     result
 }
 
@@ -121,7 +129,7 @@ pub(super) fn section_header(ui: &mut egui::Ui, label: &str, open: &mut bool) {
 
     if ui.is_rect_visible(rect) {
         let painter = ui.painter();
-        let line_y  = rect.center().y;
+        let line_y = rect.center().y;
 
         // Full-width rule
         painter.hline(rect.x_range(), line_y, Stroke::new(1.0, theme::BORDER));
@@ -131,15 +139,19 @@ pub(super) fn section_header(ui: &mut egui::Ui, label: &str, open: &mut bool) {
         let font = egui::FontId::new(12.0, egui::FontFamily::Monospace);
 
         // Measure, paint opaque bg to "cut" the rule behind the label
-        let galley  = painter.layout_no_wrap(text.clone(), font.clone(), theme::GREEN);
-        let text_w  = galley.size().x + 8.0;
+        let galley = painter.layout_no_wrap(text.clone(), font.clone(), theme::GREEN);
+        let text_w = galley.size().x + 8.0;
         let cut_rect = Rect::from_center_size(
             Pos2::new(rect.left() + text_w / 2.0 + 4.0, line_y),
             Vec2::new(text_w, rect.height()),
         );
         painter.rect_filled(cut_rect, Rounding::ZERO, theme::BG_PANEL);
 
-        let col = if resp.hovered() { theme::GREEN } else { theme::GREEN_DIM };
+        let col = if resp.hovered() {
+            theme::GREEN
+        } else {
+            theme::GREEN_DIM
+        };
         painter.text(
             Pos2::new(rect.left() + 4.0, line_y),
             egui::Align2::LEFT_CENTER,
@@ -159,7 +171,11 @@ pub(super) fn section_header(ui: &mut egui::Ui, label: &str, open: &mut bool) {
 /// Render the parameter controls for a single effect kind, mutating it in place.
 pub(super) fn effect_params_ui(ui: &mut egui::Ui, kind: &mut EffectKind) {
     match kind {
-        EffectKind::BrightnessContrastGamma { brightness, contrast, gamma } => {
+        EffectKind::BrightnessContrastGamma {
+            brightness,
+            contrast,
+            gamma,
+        } => {
             ui.label("Brightness");
             ui.add(
                 egui::Slider::new(brightness, -1.0..=1.0)
@@ -167,14 +183,10 @@ pub(super) fn effect_params_ui(ui: &mut egui::Ui, kind: &mut EffectKind) {
             );
             ui.label("Contrast");
             ui.add(
-                egui::Slider::new(contrast, 0.1..=4.0)
-                    .custom_formatter(|v, _| format!("{v:.2}x")),
+                egui::Slider::new(contrast, 0.1..=4.0).custom_formatter(|v, _| format!("{v:.2}x")),
             );
             ui.label("Gamma");
-            ui.add(
-                egui::Slider::new(gamma, 0.1..=4.0)
-                    .custom_formatter(|v, _| format!("{v:.2}")),
-            );
+            ui.add(egui::Slider::new(gamma, 0.1..=4.0).custom_formatter(|v, _| format!("{v:.2}")));
         }
         EffectKind::Posterize { levels } => {
             ui.label("Levels");
@@ -182,10 +194,7 @@ pub(super) fn effect_params_ui(ui: &mut egui::Ui, kind: &mut EffectKind) {
         }
         EffectKind::Sharpen { amount } => {
             ui.label("Amount");
-            ui.add(
-                egui::Slider::new(amount, 0.0..=4.0)
-                    .custom_formatter(|v, _| format!("{v:.2}")),
-            );
+            ui.add(egui::Slider::new(amount, 0.0..=4.0).custom_formatter(|v, _| format!("{v:.2}")));
         }
         EffectKind::Pixelate { block_size } => {
             ui.label("Block size");
@@ -221,8 +230,7 @@ pub(super) fn effect_params_ui(ui: &mut egui::Ui, kind: &mut EffectKind) {
             ui.add(egui::Slider::new(radius, 1..=32).suffix("px"));
             ui.label("Strength");
             ui.add(
-                egui::Slider::new(strength, 0.0..=3.0)
-                    .custom_formatter(|v, _| format!("{v:.2}x")),
+                egui::Slider::new(strength, 0.0..=3.0).custom_formatter(|v, _| format!("{v:.2}x")),
             );
         }
         EffectKind::Scanlines { spacing, opacity } => {
@@ -256,8 +264,7 @@ pub(super) fn effect_params_ui(ui: &mut egui::Ui, kind: &mut EffectKind) {
             );
             ui.label("Grain size");
             ui.add(
-                egui::Slider::new(grain_size, 0.5..=3.0)
-                    .custom_formatter(|v, _| format!("{v:.2}")),
+                egui::Slider::new(grain_size, 0.5..=3.0).custom_formatter(|v, _| format!("{v:.2}")),
             );
             ui.add_space(4.0);
             ui.label("Halation strength");
@@ -291,13 +298,13 @@ fn tone_curve_widget(ui: &mut egui::Ui, points: &mut [f32; 5]) {
     for i in 1..4 {
         let t = i as f32 / 4.0;
         let x = rect.left() + t * rect.width();
-        let y = rect.top()  + t * rect.height();
+        let y = rect.top() + t * rect.height();
         painter.line_segment(
-            [Pos2::new(x, rect.top()),    Pos2::new(x, rect.bottom())],
+            [Pos2::new(x, rect.top()), Pos2::new(x, rect.bottom())],
             Stroke::new(0.5, theme::GREEN_FAINT),
         );
         painter.line_segment(
-            [Pos2::new(rect.left(), y),   Pos2::new(rect.right(), y)],
+            [Pos2::new(rect.left(), y), Pos2::new(rect.right(), y)],
             Stroke::new(0.5, theme::GREEN_FAINT),
         );
     }
@@ -313,7 +320,10 @@ fn tone_curve_widget(ui: &mut egui::Ui, points: &mut [f32; 5]) {
         .map(|i| {
             let t = i as f32 / 128.0;
             let v = eval_curve(points, t);
-            Pos2::new(rect.left() + t * rect.width(), rect.bottom() - v * rect.height())
+            Pos2::new(
+                rect.left() + t * rect.width(),
+                rect.bottom() - v * rect.height(),
+            )
         })
         .collect();
     painter.add(egui::Shape::line(curve_pts, Stroke::new(1.5, theme::GREEN)));
@@ -353,13 +363,13 @@ fn tone_curve_widget(ui: &mut egui::Ui, points: &mut [f32; 5]) {
 /// Human-readable label for the input downscale dimension selector.
 pub(super) fn input_dim_label(dim: u32) -> &'static str {
     match dim {
-        0    => "full size",
-        128  => "128px",
-        256  => "256px",
-        512  => "512px",
+        0 => "full size",
+        128 => "128px",
+        256 => "256px",
+        512 => "512px",
         1024 => "1024px",
         2048 => "2048px",
-        _    => "custom",
+        _ => "custom",
     }
 }
 

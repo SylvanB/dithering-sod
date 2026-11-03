@@ -142,10 +142,10 @@ pub struct DitheringApp {
     status: String,
 
     // ── Section collapse state ─────────────────────────────────────────────────
-    section_effects_open:   bool,
-    section_palette_open:   bool,
+    section_effects_open: bool,
+    section_palette_open: bool,
     section_algorithm_open: bool,
-    section_view_open:      bool,
+    section_view_open: bool,
 
     // ── Undo / redo ───────────────────────────────────────────────────────────────
     undo_stack: std::collections::VecDeque<AppSnapshot>,
@@ -179,10 +179,10 @@ impl Default for DitheringApp {
             compare_pos: 0.5,
             export_scale: 1,
             status: "Drop an image or use \"Open Image\"".to_string(),
-            section_effects_open:   true,
-            section_palette_open:   true,
+            section_effects_open: true,
+            section_palette_open: true,
             section_algorithm_open: true,
-            section_view_open:      true,
+            section_view_open: true,
             undo_stack: std::collections::VecDeque::new(),
             redo_stack: Vec::new(),
             undo_pending: None,
@@ -289,13 +289,15 @@ impl DitheringApp {
     /// Clears both dirty flags immediately so that further changes during the
     /// render set them again and trigger a second pass on completion.
     fn kick_render(&mut self, ctx: &Context) {
-        let Some(src) = self.scaled_original() else { return };
+        let Some(src) = self.scaled_original() else {
+            return;
+        };
 
         let need_pre = self.pre_dirty;
         let pre_base = self.preprocessed.clone();
         let effects = self.effects.clone();
-        let mode = self.mode;               // Copy
-        let dither_params = self.dither_params;   // Copy
+        let mode = self.mode; // Copy
+        let dither_params = self.dither_params; // Copy
         let halftone_params = self.halftone_params; // Copy
         let palette = self.resolved_palette();
 
@@ -319,7 +321,10 @@ impl DitheringApp {
                 AppMode::Off => pre.clone(),
             };
 
-            let _ = tx.send(RenderOutput { preprocessed: pre, dithered });
+            let _ = tx.send(RenderOutput {
+                preprocessed: pre,
+                dithered,
+            });
             ctx2.request_repaint();
         });
     }
@@ -353,7 +358,10 @@ impl DitheringApp {
     fn resolved_palette(&self) -> Palette {
         match self.palette_kind {
             PaletteKind::Extracted | PaletteKind::Custom if !self.user_palette.is_empty() => {
-                Palette { name: "User", colors: self.user_palette.clone() }
+                Palette {
+                    name: "User",
+                    colors: self.user_palette.clone(),
+                }
             }
             _ => self.palette_kind.build(),
         }
@@ -417,7 +425,11 @@ impl eframe::App for DitheringApp {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
         // Drag-and-drop file loading.
         let dropped: Vec<PathBuf> = ctx.input(|i| {
-            i.raw.dropped_files.iter().filter_map(|f| f.path.clone()).collect()
+            i.raw
+                .dropped_files
+                .iter()
+                .filter_map(|f| f.path.clone())
+                .collect()
         });
         if let Some(path) = dropped.into_iter().next() {
             self.load_image(path, ctx);
@@ -432,7 +444,8 @@ impl eframe::App for DitheringApp {
         // Redo: Cmd+Shift+Z or Cmd+Y
         if ctx.input(|i| {
             i.modifiers.command
-                && (i.key_pressed(egui::Key::Y) || (i.key_pressed(egui::Key::Z) && i.modifiers.shift))
+                && (i.key_pressed(egui::Key::Y)
+                    || (i.key_pressed(egui::Key::Z) && i.modifiers.shift))
         }) {
             self.do_redo();
         }
@@ -445,7 +458,10 @@ impl eframe::App for DitheringApp {
             }
         }
 
-        if (self.pre_dirty || self.dither_dirty) && self.original.is_some() && self.render_rx.is_none() {
+        if (self.pre_dirty || self.dither_dirty)
+            && self.original.is_some()
+            && self.render_rx.is_none()
+        {
             self.kick_render(ctx);
         }
 
@@ -455,7 +471,12 @@ impl eframe::App for DitheringApp {
                 egui::Frame::none()
                     .fill(ui::theme::BG)
                     .stroke(egui::Stroke::new(1.0, ui::theme::BORDER))
-                    .inner_margin(egui::Margin { left: 12.0, right: 12.0, top: 5.0, bottom: 5.0 }),
+                    .inner_margin(egui::Margin {
+                        left: 12.0,
+                        right: 12.0,
+                        top: 5.0,
+                        bottom: 5.0,
+                    }),
             )
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
@@ -470,7 +491,10 @@ impl eframe::App for DitheringApp {
                     // File actions
                     if ui.button("Open Image").clicked() {
                         if let Some(path) = rfd::FileDialog::new()
-                            .add_filter("Images", &["png", "jpg", "jpeg", "bmp", "gif", "tiff", "webp"])
+                            .add_filter(
+                                "Images",
+                                &["png", "jpg", "jpeg", "bmp", "gif", "tiff", "webp"],
+                            )
                             .pick_file()
                         {
                             self.load_image(path, ctx);
@@ -485,26 +509,36 @@ impl eframe::App for DitheringApp {
                             ("JPEG", SaveFormat::Jpeg),
                             ("BMP", SaveFormat::Bmp),
                         ] {
-                            if ui.add_enabled(has_output, egui::Button::new(label)).clicked() {
+                            if ui
+                                .add_enabled(has_output, egui::Button::new(label))
+                                .clicked()
+                            {
                                 self.save_image(fmt);
                                 ui.close_menu();
                             }
                         }
                     });
-                    if ui.add_enabled(has_output, egui::Button::new("Copy")).clicked() {
+                    if ui
+                        .add_enabled(has_output, egui::Button::new("Copy"))
+                        .clicked()
+                    {
                         self.copy_to_clipboard();
                     }
 
                     ui.separator();
 
                     // Undo / Redo
-                    if ui.add_enabled(!self.undo_stack.is_empty(), egui::Button::new("↩ Undo"))
-                        .on_hover_text("Cmd+Z").clicked()
+                    if ui
+                        .add_enabled(!self.undo_stack.is_empty(), egui::Button::new("↩ Undo"))
+                        .on_hover_text("Cmd+Z")
+                        .clicked()
                     {
                         self.do_undo();
                     }
-                    if ui.add_enabled(!self.redo_stack.is_empty(), egui::Button::new("↪ Redo"))
-                        .on_hover_text("Cmd+Shift+Z").clicked()
+                    if ui
+                        .add_enabled(!self.redo_stack.is_empty(), egui::Button::new("↪ Redo"))
+                        .on_hover_text("Cmd+Shift+Z")
+                        .clicked()
                     {
                         self.do_redo();
                     }
@@ -521,7 +555,9 @@ impl eframe::App for DitheringApp {
                         {
                             match serde_json::to_string_pretty(&snap) {
                                 Ok(json) => match std::fs::write(&path, json) {
-                                    Ok(()) => self.status = format!("Preset saved: {}", path.display()),
+                                    Ok(()) => {
+                                        self.status = format!("Preset saved: {}", path.display())
+                                    }
                                     Err(e) => self.status = format!("Save error: {e}"),
                                 },
                                 Err(e) => self.status = format!("Serialize error: {e}"),
@@ -558,7 +594,11 @@ impl eframe::App for DitheringApp {
                             );
                             ui.separator();
                         }
-                        ui.label(RichText::new(&self.status).color(ui::theme::GREEN_DIM).small());
+                        ui.label(
+                            RichText::new(&self.status)
+                                .color(ui::theme::GREEN_DIM)
+                                .small(),
+                        );
                     });
                 });
             });
@@ -571,7 +611,12 @@ impl eframe::App for DitheringApp {
             .frame(
                 egui::Frame::none()
                     .fill(ui::theme::BG_PANEL)
-                    .inner_margin(egui::Margin { left: 8.0, right: 8.0, top: 8.0, bottom: 8.0 }),
+                    .inner_margin(egui::Margin {
+                        left: 8.0,
+                        right: 8.0,
+                        top: 8.0,
+                        bottom: 8.0,
+                    }),
             )
             .show(ctx, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
@@ -679,18 +724,22 @@ impl DitheringApp {
                     let e = &mut self.effects[i];
                     ui.horizontal(|ui| {
                         ui.checkbox(&mut e.enabled, "");
-                        let label = RichText::new(e.kind.label())
-                            .strong()
-                            .color(if e.enabled {
-                                ui::theme::GREEN
-                            } else {
-                                ui::theme::GREEN_DIM
-                            });
+                        let label = RichText::new(e.kind.label()).strong().color(if e.enabled {
+                            ui::theme::GREEN
+                        } else {
+                            ui::theme::GREEN_DIM
+                        });
                         ui.toggle_value(&mut e.open, label);
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if ui.small_button("✕").clicked() { delete_idx = Some(i); }
-                            if i + 1 < n && ui.small_button("▼").clicked() { swap_next = Some(i); }
-                            if i > 0 && ui.small_button("▲").clicked() { swap_prev = Some(i); }
+                            if ui.small_button("✕").clicked() {
+                                delete_idx = Some(i);
+                            }
+                            if i + 1 < n && ui.small_button("▼").clicked() {
+                                swap_next = Some(i);
+                            }
+                            if i > 0 && ui.small_button("▲").clicked() {
+                                swap_prev = Some(i);
+                            }
                         });
                     });
                     if e.open {
@@ -703,9 +752,15 @@ impl DitheringApp {
                     }
                 }
 
-                if let Some(i) = swap_prev { self.effects.swap(i - 1, i); }
-                if let Some(i) = swap_next { self.effects.swap(i, i + 1); }
-                if let Some(i) = delete_idx { self.effects.remove(i); }
+                if let Some(i) = swap_prev {
+                    self.effects.swap(i - 1, i);
+                }
+                if let Some(i) = swap_next {
+                    self.effects.swap(i, i + 1);
+                }
+                if let Some(i) = delete_idx {
+                    self.effects.remove(i);
+                }
 
                 ui.add_space(6.0);
                 ui.horizontal(|ui| {
@@ -720,7 +775,8 @@ impl DitheringApp {
                         });
                     if ui.button("Add").clicked() {
                         let key = EFFECT_NAMES[self.add_effect_choice].0;
-                        self.effects.push(Effect::new(EffectKind::default_for_name(key)));
+                        self.effects
+                            .push(Effect::new(EffectKind::default_for_name(key)));
                     }
                 });
             }
@@ -739,7 +795,7 @@ impl DitheringApp {
         ui::section(ui, |ui| {
             ui::section_header(ui, "Palette", &mut self.section_palette_open);
             if self.section_palette_open {
-            ui.add_space(4.0);
+                ui.add_space(4.0);
                 let w = ui.available_width();
 
                 egui::ComboBox::from_id_salt("palette")
@@ -758,10 +814,8 @@ impl DitheringApp {
                 ui.horizontal_wrapped(|ui| {
                     ui.spacing_mut().item_spacing = egui::vec2(1.0, 1.0);
                     for &[r, g, b] in &palette.colors {
-                        let (rect, _) = ui.allocate_exact_size(
-                            egui::vec2(sw, sw),
-                            egui::Sense::hover(),
-                        );
+                        let (rect, _) =
+                            ui.allocate_exact_size(egui::vec2(sw, sw), egui::Sense::hover());
                         ui.painter().rect_filled(
                             rect,
                             2.0,
@@ -796,8 +850,10 @@ impl DitheringApp {
                 }
 
                 // Custom/extracted palette editor
-                if matches!(self.palette_kind, PaletteKind::Extracted | PaletteKind::Custom)
-                    && !self.user_palette.is_empty()
+                if matches!(
+                    self.palette_kind,
+                    PaletteKind::Extracted | PaletteKind::Custom
+                ) && !self.user_palette.is_empty()
                 {
                     ui.add_space(6.0);
                     ui.separator();
@@ -817,17 +873,29 @@ impl DitheringApp {
                             ui.with_layout(
                                 egui::Layout::right_to_left(egui::Align::Center),
                                 |ui| {
-                                    if ui.small_button("✕").clicked() { delete_color = Some(i); }
-                                    if i + 1 < nc && ui.small_button("▼").clicked() { swap_next = Some(i); }
-                                    if i > 0 && ui.small_button("▲").clicked() { swap_prev = Some(i); }
+                                    if ui.small_button("✕").clicked() {
+                                        delete_color = Some(i);
+                                    }
+                                    if i + 1 < nc && ui.small_button("▼").clicked() {
+                                        swap_next = Some(i);
+                                    }
+                                    if i > 0 && ui.small_button("▲").clicked() {
+                                        swap_prev = Some(i);
+                                    }
                                 },
                             );
                         });
                     }
 
-                    if let Some(i) = swap_prev { self.user_palette.swap(i - 1, i); }
-                    if let Some(i) = swap_next { self.user_palette.swap(i, i + 1); }
-                    if let Some(i) = delete_color { self.user_palette.remove(i); }
+                    if let Some(i) = swap_prev {
+                        self.user_palette.swap(i - 1, i);
+                    }
+                    if let Some(i) = swap_next {
+                        self.user_palette.swap(i, i + 1);
+                    }
+                    if let Some(i) = delete_color {
+                        self.user_palette.remove(i);
+                    }
 
                     if ui.small_button("+ Add Color").clicked() {
                         self.user_palette.push([1.0, 1.0, 1.0]);
@@ -841,11 +909,8 @@ impl DitheringApp {
                                 .set_file_name("palette.gpl")
                                 .save_file()
                             {
-                                let _ = crate::palette::save_gpl(
-                                    &self.user_palette,
-                                    "Custom",
-                                    &path,
-                                );
+                                let _ =
+                                    crate::palette::save_gpl(&self.user_palette, "Custom", &path);
                             }
                         }
                         if ui.small_button("Load .gpl").clicked() {
@@ -1038,7 +1103,11 @@ impl DitheringApp {
                     } else {
                         (img.width(), img.height())
                     };
-                    ui.label(RichText::new(format!("→ {w}×{h}px")).color(ui::theme::GREEN_DIM).small());
+                    ui.label(
+                        RichText::new(format!("→ {w}×{h}px"))
+                            .color(ui::theme::GREEN_DIM)
+                            .small(),
+                    );
                 }
                 ui.add_space(4.0);
 
@@ -1070,16 +1139,19 @@ impl DitheringApp {
             painter.rect_filled(available, egui::Rounding::ZERO, ui::theme::BG);
 
             let mono = egui::FontId::new(13.0, egui::FontFamily::Monospace);
-            let cx   = available.center();
-            let lh   = 20.0;
+            let cx = available.center();
+            let lh = 20.0;
             for (i, (line, col)) in [
-                ("> dithering-tool v0.1",          ui::theme::GREEN_DIM),
-                ("",                               ui::theme::GREEN_DIM),
-                ("> drop image file here",         ui::theme::GREEN),
-                ("> or: file > open image",        ui::theme::GREEN_DIM),
-                ("",                               ui::theme::GREEN_DIM),
-                ("_",                              ui::theme::GREEN),
-            ].iter().enumerate() {
+                ("> dithering-tool v0.1", ui::theme::GREEN_DIM),
+                ("", ui::theme::GREEN_DIM),
+                ("> drop image file here", ui::theme::GREEN),
+                ("> or: file > open image", ui::theme::GREEN_DIM),
+                ("", ui::theme::GREEN_DIM),
+                ("_", ui::theme::GREEN),
+            ]
+            .iter()
+            .enumerate()
+            {
                 painter.text(
                     cx + egui::vec2(0.0, (i as f32 - 2.5) * lh),
                     egui::Align2::CENTER_CENTER,
@@ -1093,14 +1165,14 @@ impl DitheringApp {
 
         match self.view_mode {
             ViewMode::Compare => self.draw_compare(ctx, ui, available),
-            ViewMode::Split   => self.draw_split(ui),
-            ViewMode::Output  => self.draw_output(ui),
+            ViewMode::Split => self.draw_split(ui),
+            ViewMode::Output => self.draw_output(ui),
         }
 
         // Scanline overlay — subtle CRT horizontal lines over the image
-        let painter   = ui.painter_at(available);
-        let scanline  = egui::Color32::from_rgba_premultiplied(0, 0, 0, 18);
-        let mut y     = available.top();
+        let painter = ui.painter_at(available);
+        let scanline = egui::Color32::from_rgba_premultiplied(0, 0, 0, 18);
+        let mut y = available.top();
         while y < available.bottom() {
             painter.hline(available.x_range(), y, egui::Stroke::new(1.0, scanline));
             y += 2.0;
@@ -1114,8 +1186,7 @@ impl DitheringApp {
         };
 
         let [iw, ih] = orig_tex.size();
-        let fit_scale =
-            (available.width() / iw as f32).min(available.height() / ih as f32);
+        let fit_scale = (available.width() / iw as f32).min(available.height() / ih as f32);
         let scale = fit_scale * self.zoom;
         let img_size = egui::Vec2::new(iw as f32 * scale, ih as f32 * scale);
         let img_rect = egui::Rect::from_center_size(available.center(), img_size);
@@ -1180,12 +1251,14 @@ impl DitheringApp {
             egui::Pos2::new(split_x, img_rect.center().y),
             egui::Vec2::new(24.0, img_rect.height()),
         );
-        let divider_resp =
-            ui.interact(divider_rect, ui.id().with("compare_div"), egui::Sense::drag());
+        let divider_resp = ui.interact(
+            divider_rect,
+            ui.id().with("compare_div"),
+            egui::Sense::drag(),
+        );
         if divider_resp.dragged() && img_rect.width() > 0.0 {
             self.compare_pos =
-                (self.compare_pos + divider_resp.drag_delta().x / img_rect.width())
-                    .clamp(0.0, 1.0);
+                (self.compare_pos + divider_resp.drag_delta().x / img_rect.width()).clamp(0.0, 1.0);
         }
         if divider_resp.hovered() {
             ctx.set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
@@ -1201,7 +1274,12 @@ impl DitheringApp {
                     if let Some(tex) = &self.original_tex {
                         let size = ui::tex_display_size(tex, self.zoom);
                         ui.vertical(|ui| {
-                            ui.label(RichText::new("[ original ]").monospace().color(ui::theme::GREEN_DIM).small());
+                            ui.label(
+                                RichText::new("[ original ]")
+                                    .monospace()
+                                    .color(ui::theme::GREEN_DIM)
+                                    .small(),
+                            );
                             ui.add(egui::Image::new(tex).fit_to_exact_size(size));
                         });
                     }
@@ -1209,7 +1287,12 @@ impl DitheringApp {
                     if let Some(tex) = &self.dithered_tex {
                         let size = ui::tex_display_size(tex, self.zoom);
                         ui.vertical(|ui| {
-                            ui.label(RichText::new("[ output ]").monospace().color(ui::theme::GREEN_DIM).small());
+                            ui.label(
+                                RichText::new("[ output ]")
+                                    .monospace()
+                                    .color(ui::theme::GREEN_DIM)
+                                    .small(),
+                            );
                             ui.add(
                                 egui::Image::new(tex)
                                     .fit_to_exact_size(size)
@@ -1287,8 +1370,10 @@ fn save_gif(img: &DynamicImage, path: &std::path::Path) -> Result<(), String> {
     let rgba = img.to_rgba8();
     let file = std::fs::File::create(path).map_err(|e| e.to_string())?;
     let mut enc = GifEncoder::new(file);
-    enc.set_repeat(Repeat::Infinite).map_err(|e| e.to_string())?;
-    enc.encode_frame(Frame::new(rgba)).map_err(|e| e.to_string())?;
+    enc.set_repeat(Repeat::Infinite)
+        .map_err(|e| e.to_string())?;
+    enc.encode_frame(Frame::new(rgba))
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 

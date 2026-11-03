@@ -36,9 +36,7 @@ pub enum EffectKind {
         y_shift: f32,
     },
     /// Tone curve: 5 output values at inputs [0, 0.25, 0.5, 0.75, 1.0]
-    ToneCurve {
-        points: [f32; 5],
-    },
+    ToneCurve { points: [f32; 5] },
     /// CRT-style bloom glow: blurs the image and blends it back additively.
     CrtGlow {
         radius: u32,   // 1–32 pixels
@@ -52,11 +50,11 @@ pub enum EffectKind {
     /// Portra 400 — see `crate::filmstock`): per-channel characteristic
     /// curve, density-dependent grain, and highlight halation.
     FilmEmulation {
-        exposure_ev: f32,        // -2.0–2.0 stops, shifts input along the curve's log-exposure axis
-        grain_strength: f32,     // 0.0–2.0 grain amplitude multiplier
-        grain_size: f32,         // 0.5–3.0 grain "clump" radius multiplier
-        halation_strength: f32,  // 0.0–2.0 bloom amplitude multiplier
-        halation_radius: u32,    // 2–64 px bloom blur radius
+        exposure_ev: f32, // -2.0–2.0 stops, shifts input along the curve's log-exposure axis
+        grain_strength: f32, // 0.0–2.0 grain amplitude multiplier
+        grain_size: f32,  // 0.5–3.0 grain "clump" radius multiplier
+        halation_strength: f32, // 0.0–2.0 bloom amplitude multiplier
+        halation_radius: u32, // 2–64 px bloom blur radius
         halation_threshold: f32, // 0.0–1.0 luminance above which halation blooms
     },
 }
@@ -64,16 +62,31 @@ pub enum EffectKind {
 impl EffectKind {
     pub fn default_for_name(name: &str) -> Self {
         match name {
-            "bcg"       => EffectKind::BrightnessContrastGamma { brightness: 0.0, contrast: 1.0, gamma: 1.0 },
+            "bcg" => EffectKind::BrightnessContrastGamma {
+                brightness: 0.0,
+                contrast: 1.0,
+                gamma: 1.0,
+            },
             "posterize" => EffectKind::Posterize { levels: 4 },
-            "sharpen"   => EffectKind::Sharpen { amount: 1.0 },
-            "pixelate"  => EffectKind::Pixelate { block_size: 8 },
-            "jpeg"      => EffectKind::JpegGlitch { quality: 20 },
-            "chroma"    => EffectKind::ChromaticAberration { x_shift: 5.0, y_shift: 0.0 },
-            "curve"     => EffectKind::ToneCurve { points: [0.0, 0.25, 0.5, 0.75, 1.0] },
-            "crtglow"   => EffectKind::CrtGlow { radius: 8, strength: 0.6 },
-            "scanlines" => EffectKind::Scanlines { spacing: 4, opacity: 0.7 },
-            "film"      => EffectKind::FilmEmulation {
+            "sharpen" => EffectKind::Sharpen { amount: 1.0 },
+            "pixelate" => EffectKind::Pixelate { block_size: 8 },
+            "jpeg" => EffectKind::JpegGlitch { quality: 20 },
+            "chroma" => EffectKind::ChromaticAberration {
+                x_shift: 5.0,
+                y_shift: 0.0,
+            },
+            "curve" => EffectKind::ToneCurve {
+                points: [0.0, 0.25, 0.5, 0.75, 1.0],
+            },
+            "crtglow" => EffectKind::CrtGlow {
+                radius: 8,
+                strength: 0.6,
+            },
+            "scanlines" => EffectKind::Scanlines {
+                spacing: 4,
+                opacity: 0.7,
+            },
+            "film" => EffectKind::FilmEmulation {
                 exposure_ev: 0.0,
                 grain_strength: 0.6,
                 grain_size: 1.0,
@@ -81,38 +94,42 @@ impl EffectKind {
                 halation_radius: 12,
                 halation_threshold: 0.75,
             },
-            _           => EffectKind::BrightnessContrastGamma { brightness: 0.0, contrast: 1.0, gamma: 1.0 },
+            _ => EffectKind::BrightnessContrastGamma {
+                brightness: 0.0,
+                contrast: 1.0,
+                gamma: 1.0,
+            },
         }
     }
 
     pub fn label(&self) -> &'static str {
         match self {
             EffectKind::BrightnessContrastGamma { .. } => "Brightness / Contrast / Gamma",
-            EffectKind::Posterize { .. }               => "Posterize",
-            EffectKind::Sharpen { .. }                 => "Sharpen",
-            EffectKind::Pixelate { .. }                => "Pixelate",
-            EffectKind::JpegGlitch { .. }              => "JPEG Glitch",
-            EffectKind::ChromaticAberration { .. }     => "Chromatic Aberration",
-            EffectKind::ToneCurve { .. }               => "Tone Curve",
-            EffectKind::CrtGlow { .. }                 => "CRT Glow",
-            EffectKind::Scanlines { .. }               => "Scanlines",
-            EffectKind::FilmEmulation { .. }           => "Film Emulation (Portra 400)",
+            EffectKind::Posterize { .. } => "Posterize",
+            EffectKind::Sharpen { .. } => "Sharpen",
+            EffectKind::Pixelate { .. } => "Pixelate",
+            EffectKind::JpegGlitch { .. } => "JPEG Glitch",
+            EffectKind::ChromaticAberration { .. } => "Chromatic Aberration",
+            EffectKind::ToneCurve { .. } => "Tone Curve",
+            EffectKind::CrtGlow { .. } => "CRT Glow",
+            EffectKind::Scanlines { .. } => "Scanlines",
+            EffectKind::FilmEmulation { .. } => "Film Emulation (Portra 400)",
         }
     }
 }
 
 // Available effect types for the "Add Effect" menu
 pub const EFFECT_NAMES: &[(&str, &str)] = &[
-    ("bcg",       "Brightness / Contrast / Gamma"),
-    ("curve",     "Tone Curve"),
+    ("bcg", "Brightness / Contrast / Gamma"),
+    ("curve", "Tone Curve"),
     ("posterize", "Posterize"),
-    ("sharpen",   "Sharpen"),
-    ("pixelate",  "Pixelate"),
-    ("jpeg",      "JPEG Glitch"),
-    ("chroma",    "Chromatic Aberration"),
-    ("crtglow",   "CRT Glow"),
+    ("sharpen", "Sharpen"),
+    ("pixelate", "Pixelate"),
+    ("jpeg", "JPEG Glitch"),
+    ("chroma", "Chromatic Aberration"),
+    ("crtglow", "CRT Glow"),
     ("scanlines", "Scanlines"),
-    ("film",      "Film Emulation (Portra 400)"),
+    ("film", "Film Emulation (Portra 400)"),
 ];
 
 // ── Effect entry (data + UI state) ────────────────────────────────────────────
@@ -128,7 +145,11 @@ pub struct Effect {
 
 impl Effect {
     pub fn new(kind: EffectKind) -> Self {
-        Self { kind, enabled: true, open: true }
+        Self {
+            kind,
+            enabled: true,
+            open: true,
+        }
     }
 }
 
@@ -147,13 +168,15 @@ pub fn apply_effects(src: &DynamicImage, effects: &[Effect]) -> DynamicImage {
 
 fn apply_one(img: &DynamicImage, kind: &EffectKind) -> DynamicImage {
     match *kind {
-        EffectKind::BrightnessContrastGamma { brightness, contrast, gamma } => {
-            bcg(img, brightness, contrast, gamma)
-        }
-        EffectKind::Posterize { levels }         => posterize(img, levels),
-        EffectKind::Sharpen { amount }           => sharpen(img, amount),
-        EffectKind::Pixelate { block_size }      => pixelate(img, block_size),
-        EffectKind::JpegGlitch { quality }       => jpeg_glitch(img, quality),
+        EffectKind::BrightnessContrastGamma {
+            brightness,
+            contrast,
+            gamma,
+        } => bcg(img, brightness, contrast, gamma),
+        EffectKind::Posterize { levels } => posterize(img, levels),
+        EffectKind::Sharpen { amount } => sharpen(img, amount),
+        EffectKind::Pixelate { block_size } => pixelate(img, block_size),
+        EffectKind::JpegGlitch { quality } => jpeg_glitch(img, quality),
         EffectKind::ChromaticAberration { x_shift, y_shift } => {
             chromatic_aberration(img, x_shift, y_shift)
         }
@@ -161,11 +184,20 @@ fn apply_one(img: &DynamicImage, kind: &EffectKind) -> DynamicImage {
         EffectKind::CrtGlow { radius, strength } => crt_glow(img, radius, strength),
         EffectKind::Scanlines { spacing, opacity } => scanlines(img, spacing, opacity),
         EffectKind::FilmEmulation {
-            exposure_ev, grain_strength, grain_size,
-            halation_strength, halation_radius, halation_threshold,
+            exposure_ev,
+            grain_strength,
+            grain_size,
+            halation_strength,
+            halation_radius,
+            halation_threshold,
         } => film_emulation(
-            img, exposure_ev, grain_strength, grain_size,
-            halation_strength, halation_radius, halation_threshold,
+            img,
+            exposure_ev,
+            grain_strength,
+            grain_size,
+            halation_strength,
+            halation_radius,
+            halation_threshold,
         ),
     }
 }
@@ -176,8 +208,12 @@ fn apply_one(img: &DynamicImage, kind: &EffectKind) -> DynamicImage {
 /// control points are at inputs [0, 0.25, 0.5, 0.75, 1.0].
 pub fn eval_curve(points: &[f32; 5], t: f32) -> f32 {
     const INPUTS: [f32; 5] = [0.0, 0.25, 0.5, 0.75, 1.0];
-    if t <= 0.0 { return points[0]; }
-    if t >= 1.0 { return points[4]; }
+    if t <= 0.0 {
+        return points[0];
+    }
+    if t >= 1.0 {
+        return points[4];
+    }
     for i in 0..4 {
         if t <= INPUTS[i + 1] {
             let alpha = (t - INPUTS[i]) / (INPUTS[i + 1] - INPUTS[i]);
@@ -200,7 +236,15 @@ fn tone_curve(src: &DynamicImage, points: &[f32; 5]) -> DynamicImage {
     let (w, h) = rgb.dimensions();
     let mut out = RgbImage::new(w, h);
     for (x, y, px) in rgb.enumerate_pixels() {
-        out.put_pixel(x, y, image::Rgb([lut[px[0] as usize], lut[px[1] as usize], lut[px[2] as usize]]));
+        out.put_pixel(
+            x,
+            y,
+            image::Rgb([
+                lut[px[0] as usize],
+                lut[px[1] as usize],
+                lut[px[2] as usize],
+            ]),
+        );
     }
     DynamicImage::ImageRgb8(out)
 }
@@ -231,7 +275,7 @@ fn posterize(src: &DynamicImage, levels: u32) -> DynamicImage {
     let mut out = RgbImage::new(w, h);
     for (x, y, px) in rgb.enumerate_pixels() {
         let q = |v: u8| -> u8 {
-            ((( v as f32 / 255.0) * steps).round() / steps * 255.0).clamp(0.0, 255.0) as u8
+            (((v as f32 / 255.0) * steps).round() / steps * 255.0).clamp(0.0, 255.0) as u8
         };
         out.put_pixel(x, y, image::Rgb([q(px[0]), q(px[1]), q(px[2])]));
     }
@@ -248,7 +292,11 @@ fn sharpen(src: &DynamicImage, amount: f32) -> DynamicImage {
         let s = |orig: u8, blur: u8| -> u8 {
             ((orig as f32 + amount * (orig as f32 - blur as f32)).clamp(0.0, 255.0)) as u8
         };
-        out.put_pixel(x, y, image::Rgb([s(px[0], bl[0]), s(px[1], bl[1]), s(px[2], bl[2])]));
+        out.put_pixel(
+            x,
+            y,
+            image::Rgb([s(px[0], bl[0]), s(px[1], bl[1]), s(px[2], bl[2])]),
+        );
     }
     DynamicImage::ImageRgb8(out)
 }
@@ -264,11 +312,17 @@ fn box_blur_3x3(rgb: &RgbImage) -> RgbImage {
                     let nx = (x as i32 + dx).clamp(0, w as i32 - 1) as u32;
                     let ny = (y as i32 + dy).clamp(0, h as i32 - 1) as u32;
                     let p = rgb.get_pixel(nx, ny);
-                    sr += p[0] as u32; sg += p[1] as u32; sb += p[2] as u32;
+                    sr += p[0] as u32;
+                    sg += p[1] as u32;
+                    sb += p[2] as u32;
                     cnt += 1;
                 }
             }
-            out.put_pixel(x, y, image::Rgb([(sr/cnt) as u8, (sg/cnt) as u8, (sb/cnt) as u8]));
+            out.put_pixel(
+                x,
+                y,
+                image::Rgb([(sr / cnt) as u8, (sg / cnt) as u8, (sb / cnt) as u8]),
+            );
         }
     }
     out
@@ -285,14 +339,22 @@ fn pixelate(src: &DynamicImage, block: u32) -> DynamicImage {
         while x < w {
             let x1 = (x + block).min(w);
             let y1 = (y + block).min(h);
-            let cnt = ((x1 - x) * (y1 - y)) as u32;
+            let cnt = (x1 - x) * (y1 - y);
             let (mut sr, mut sg, mut sb) = (0u32, 0u32, 0u32);
-            for py in y..y1 { for px in x..x1 {
-                let p = rgb.get_pixel(px, py);
-                sr += p[0] as u32; sg += p[1] as u32; sb += p[2] as u32;
-            }}
-            let avg = image::Rgb([(sr/cnt) as u8, (sg/cnt) as u8, (sb/cnt) as u8]);
-            for py in y..y1 { for px in x..x1 { out.put_pixel(px, py, avg); }}
+            for py in y..y1 {
+                for px in x..x1 {
+                    let p = rgb.get_pixel(px, py);
+                    sr += p[0] as u32;
+                    sg += p[1] as u32;
+                    sb += p[2] as u32;
+                }
+            }
+            let avg = image::Rgb([(sr / cnt) as u8, (sg / cnt) as u8, (sb / cnt) as u8]);
+            for py in y..y1 {
+                for px in x..x1 {
+                    out.put_pixel(px, py, avg);
+                }
+            }
             x += block;
         }
         y += block;
@@ -307,7 +369,10 @@ fn jpeg_glitch(src: &DynamicImage, quality: u8) -> DynamicImage {
     let mut buf = Vec::new();
     {
         let mut enc = JpegEncoder::new_with_quality(&mut buf, quality.clamp(1, 95));
-        if enc.encode(rgb.as_raw(), w, h, image::ExtendedColorType::Rgb8).is_err() {
+        if enc
+            .encode(rgb.as_raw(), w, h, image::ExtendedColorType::Rgb8)
+            .is_err()
+        {
             return src.clone();
         }
     }
@@ -329,9 +394,15 @@ fn box_blur_r(rgb: &RgbImage, radius: u32) -> RgbImage {
             for dx in -r..=r {
                 let nx = (x as i32 + dx).clamp(0, w as i32 - 1) as u32;
                 let p = rgb.get_pixel(nx, y);
-                sr += p[0] as u32; sg += p[1] as u32; sb += p[2] as u32;
+                sr += p[0] as u32;
+                sg += p[1] as u32;
+                sb += p[2] as u32;
             }
-            horiz.put_pixel(x, y, image::Rgb([(sr/diam) as u8, (sg/diam) as u8, (sb/diam) as u8]));
+            horiz.put_pixel(
+                x,
+                y,
+                image::Rgb([(sr / diam) as u8, (sg / diam) as u8, (sb / diam) as u8]),
+            );
         }
     }
 
@@ -343,9 +414,15 @@ fn box_blur_r(rgb: &RgbImage, radius: u32) -> RgbImage {
             for dy in -r..=r {
                 let ny = (y as i32 + dy).clamp(0, h as i32 - 1) as u32;
                 let p = horiz.get_pixel(x, ny);
-                sr += p[0] as u32; sg += p[1] as u32; sb += p[2] as u32;
+                sr += p[0] as u32;
+                sg += p[1] as u32;
+                sb += p[2] as u32;
             }
-            vert.put_pixel(x, y, image::Rgb([(sr/diam) as u8, (sg/diam) as u8, (sb/diam) as u8]));
+            vert.put_pixel(
+                x,
+                y,
+                image::Rgb([(sr / diam) as u8, (sg / diam) as u8, (sb / diam) as u8]),
+            );
         }
     }
     vert
@@ -366,7 +443,11 @@ fn crt_glow(src: &DynamicImage, radius: u32, strength: f32) -> DynamicImage {
         let add = |orig: u8, glow: u8| -> u8 {
             (orig as f32 + strength * glow as f32).clamp(0.0, 255.0) as u8
         };
-        out.put_pixel(x, y, image::Rgb([add(px[0], bl[0]), add(px[1], bl[1]), add(px[2], bl[2])]));
+        out.put_pixel(
+            x,
+            y,
+            image::Rgb([add(px[0], bl[0]), add(px[1], bl[1]), add(px[2], bl[2])]),
+        );
     }
     DynamicImage::ImageRgb8(out)
 }
@@ -401,9 +482,9 @@ fn chromatic_aberration(src: &DynamicImage, x_shift: f32, y_shift: f32) -> Dynam
     };
     for y in 0..h {
         for x in 0..w {
-            let r = sample(x, y, xs, ys, 0);          // R shifted +
-            let g = rgb.get_pixel(x, y)[1];            // G unchanged
-            let b = sample(x, y, -xs, -ys, 2);        // B shifted −
+            let r = sample(x, y, xs, ys, 0); // R shifted +
+            let g = rgb.get_pixel(x, y)[1]; // G unchanged
+            let b = sample(x, y, -xs, -ys, 2); // B shifted −
             out.put_pixel(x, y, image::Rgb([r, g, b]));
         }
     }
@@ -428,7 +509,7 @@ fn chromatic_aberration(src: &DynamicImage, x_shift: f32, y_shift: f32) -> Dynam
 // See NOTES.md for what's derived from the Kodak Alaris E-4050 datasheet vs.
 // approximated, and `crate::filmstock` for the underlying curve data.
 
-const LOG10_2: f32 = 0.301_029_99;
+const LOG10_2: f32 = std::f32::consts::LOG10_2;
 
 #[allow(clippy::too_many_arguments)]
 fn film_emulation(

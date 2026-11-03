@@ -10,9 +10,9 @@
 //! All algorithms quantize each pixel to the nearest color in the supplied
 //! [`Palette`] using a perceptually-weighted Euclidean distance.
 
+use crate::palette::Palette;
 use image::{DynamicImage, RgbImage};
 use serde::{Deserialize, Serialize};
-use crate::palette::Palette;
 
 // ── Bayer matrices ──────────────────────────────────────────────────────────
 
@@ -101,18 +101,18 @@ impl Algorithm {
 
     pub fn name(&self) -> &'static str {
         match self {
-            Algorithm::Threshold      => "Threshold",
-            Algorithm::Ordered        => "Ordered (Bayer)",
-            Algorithm::WhiteNoise     => "White Noise",
+            Algorithm::Threshold => "Threshold",
+            Algorithm::Ordered => "Ordered (Bayer)",
+            Algorithm::WhiteNoise => "White Noise",
             Algorithm::FloydSteinberg => "Floyd-Steinberg",
-            Algorithm::Atkinson       => "Atkinson",
-            Algorithm::Burkes         => "Burkes",
+            Algorithm::Atkinson => "Atkinson",
+            Algorithm::Burkes => "Burkes",
             Algorithm::JarvisJudiceNinke => "Jarvis-Judice-Ninke",
-            Algorithm::Stucki         => "Stucki",
-            Algorithm::Sierra         => "Sierra",
-            Algorithm::SierraLite     => "Sierra Lite",
-            Algorithm::SierraTwoRow   => "Sierra Two-Row",
-            Algorithm::ShiauFan       => "Shiau-Fan",
+            Algorithm::Stucki => "Stucki",
+            Algorithm::Sierra => "Sierra",
+            Algorithm::SierraLite => "Sierra Lite",
+            Algorithm::SierraTwoRow => "Sierra Two-Row",
+            Algorithm::ShiauFan => "Shiau-Fan",
         }
     }
 
@@ -152,9 +152,9 @@ pub enum BayerSize {
 impl BayerSize {
     pub fn name(&self) -> &'static str {
         match self {
-            BayerSize::B2  => "2×2",
-            BayerSize::B4  => "4×4",
-            BayerSize::B8  => "8×8",
+            BayerSize::B2 => "2×2",
+            BayerSize::B4 => "4×4",
+            BayerSize::B8 => "8×8",
             BayerSize::B16 => "16×16",
         }
     }
@@ -193,14 +193,19 @@ impl Default for DitherParams {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-#[inline] fn u8_to_f(v: u8) -> f32 { v as f32 / 255.0 }
-#[inline] fn f_to_u8(v: f32) -> u8 { (v.clamp(0.0, 1.0) * 255.0).round() as u8 }
+#[inline]
+fn u8_to_f(v: u8) -> f32 {
+    v as f32 / 255.0
+}
+#[inline]
+fn f_to_u8(v: f32) -> u8 {
+    (v.clamp(0.0, 1.0) * 255.0).round() as u8
+}
 
 /// Deterministic per-pixel hash noise in [0, 1]
 #[inline]
 fn pixel_hash(x: usize, y: usize) -> f32 {
-    let mut h = (x as u64).wrapping_mul(2654435761)
-        ^ (y as u64).wrapping_mul(2246822519);
+    let mut h = (x as u64).wrapping_mul(2654435761) ^ (y as u64).wrapping_mul(2246822519);
     h ^= h >> 16;
     h = h.wrapping_mul(0x45d9f3b57ad8b0c1);
     h ^= h >> 16;
@@ -224,18 +229,26 @@ pub fn apply_dither(src: &DynamicImage, params: &DitherParams, palette: &Palette
         .collect();
 
     match &params.algorithm {
-        Algorithm::Threshold  => dither_threshold(&mut buf, w, h, params, palette),
-        Algorithm::Ordered    => dither_ordered(&mut buf, w, h, params, palette),
+        Algorithm::Threshold => dither_threshold(&mut buf, w, h, params, palette),
+        Algorithm::Ordered => dither_ordered(&mut buf, w, h, params, palette),
         Algorithm::WhiteNoise => dither_white_noise(&mut buf, w, h, params, palette),
-        Algorithm::FloydSteinberg => dither_error_diffusion(&mut buf, w, h, params, palette, &FLOYD_STEINBERG),
-        Algorithm::Atkinson       => dither_error_diffusion(&mut buf, w, h, params, palette, &ATKINSON),
-        Algorithm::Burkes         => dither_error_diffusion(&mut buf, w, h, params, palette, &BURKES),
-        Algorithm::JarvisJudiceNinke => dither_error_diffusion(&mut buf, w, h, params, palette, &JJN),
-        Algorithm::Stucki         => dither_error_diffusion(&mut buf, w, h, params, palette, &STUCKI),
-        Algorithm::Sierra         => dither_error_diffusion(&mut buf, w, h, params, palette, &SIERRA),
-        Algorithm::SierraLite     => dither_error_diffusion(&mut buf, w, h, params, palette, &SIERRA_LITE),
-        Algorithm::SierraTwoRow   => dither_error_diffusion(&mut buf, w, h, params, palette, &SIERRA_TWO_ROW),
-        Algorithm::ShiauFan       => dither_error_diffusion(&mut buf, w, h, params, palette, &SHIAU_FAN),
+        Algorithm::FloydSteinberg => {
+            dither_error_diffusion(&mut buf, w, h, params, palette, &FLOYD_STEINBERG)
+        }
+        Algorithm::Atkinson => dither_error_diffusion(&mut buf, w, h, params, palette, &ATKINSON),
+        Algorithm::Burkes => dither_error_diffusion(&mut buf, w, h, params, palette, &BURKES),
+        Algorithm::JarvisJudiceNinke => {
+            dither_error_diffusion(&mut buf, w, h, params, palette, &JJN)
+        }
+        Algorithm::Stucki => dither_error_diffusion(&mut buf, w, h, params, palette, &STUCKI),
+        Algorithm::Sierra => dither_error_diffusion(&mut buf, w, h, params, palette, &SIERRA),
+        Algorithm::SierraLite => {
+            dither_error_diffusion(&mut buf, w, h, params, palette, &SIERRA_LITE)
+        }
+        Algorithm::SierraTwoRow => {
+            dither_error_diffusion(&mut buf, w, h, params, palette, &SIERRA_TWO_ROW)
+        }
+        Algorithm::ShiauFan => dither_error_diffusion(&mut buf, w, h, params, palette, &SHIAU_FAN),
     }
 
     // Reconstruct
@@ -243,7 +256,11 @@ pub fn apply_dither(src: &DynamicImage, params: &DitherParams, palette: &Palette
     for (i, px) in buf.iter().enumerate() {
         let x = (i % w) as u32;
         let y = (i / w) as u32;
-        out.put_pixel(x, y, image::Rgb([f_to_u8(px[0]), f_to_u8(px[1]), f_to_u8(px[2])]));
+        out.put_pixel(
+            x,
+            y,
+            image::Rgb([f_to_u8(px[0]), f_to_u8(px[1]), f_to_u8(px[2])]),
+        );
     }
 
     DynamicImage::ImageRgb8(out)
@@ -297,9 +314,9 @@ fn dither_ordered(
 #[inline]
 fn bayer_value(x: usize, y: usize, size: &BayerSize) -> f32 {
     match size {
-        BayerSize::B2  => BAYER_2[y % 2][x % 2],
-        BayerSize::B4  => BAYER_4[y % 4][x % 4],
-        BayerSize::B8  => BAYER_8[y % 8][x % 8],
+        BayerSize::B2 => BAYER_2[y % 2][x % 2],
+        BayerSize::B4 => BAYER_4[y % 4][x % 4],
+        BayerSize::B8 => BAYER_8[y % 8][x % 8],
         BayerSize::B16 => BAYER_16[y % 16][x % 16],
     }
 }
@@ -417,11 +434,7 @@ const SIERRA: DiffusionKernel = DiffusionKernel {
 };
 
 const SIERRA_LITE: DiffusionKernel = DiffusionKernel {
-    entries: &[
-        (1, 0, 2.0 / 4.0),
-        (-1, 1, 1.0 / 4.0),
-        (0, 1, 1.0 / 4.0),
-    ],
+    entries: &[(1, 0, 2.0 / 4.0), (-1, 1, 1.0 / 4.0), (0, 1, 1.0 / 4.0)],
 };
 
 // Sierra Two-Row (shorter than Sierra, two rows)
@@ -476,7 +489,11 @@ fn dither_error_diffusion(
             );
             work[y * w + x] = quantized;
 
-            let err = [old[0] - quantized[0], old[1] - quantized[1], old[2] - quantized[2]];
+            let err = [
+                old[0] - quantized[0],
+                old[1] - quantized[1],
+                old[2] - quantized[2],
+            ];
 
             // Skip if error is negligible
             if err[0].abs() + err[1].abs() + err[2].abs() < f32::EPSILON {

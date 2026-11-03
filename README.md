@@ -55,6 +55,17 @@ cargo build --release
 cargo run --release
 ```
 
+## Validation
+
+The repository includes a deterministic film-emulation validation example. It
+generates before/after fixtures and checks tone curves, grain, and halation:
+
+```sh
+cargo run --example film_validation
+```
+
+Generated fixtures and the validation report live in `validation/`.
+
 ## Project structure
 
 ```
@@ -71,3 +82,7 @@ src/
 ## Architecture notes
 
 All image processing (effects + dither/halftone) runs on a background thread via an `mpsc` channel. The UI thread clones the current parameters, spawns the worker, and polls for the result each frame. Only one render runs at a time; parameter changes while a render is in progress queue another pass automatically.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

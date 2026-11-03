@@ -23,14 +23,19 @@ pub enum DotShape {
 
 impl DotShape {
     pub fn all() -> &'static [DotShape] {
-        &[DotShape::Circle, DotShape::Square, DotShape::Diamond, DotShape::Line]
+        &[
+            DotShape::Circle,
+            DotShape::Square,
+            DotShape::Diamond,
+            DotShape::Line,
+        ]
     }
     pub fn name(&self) -> &'static str {
         match self {
-            DotShape::Circle  => "Circle",
-            DotShape::Square  => "Square",
+            DotShape::Circle => "Circle",
+            DotShape::Square => "Square",
             DotShape::Diamond => "Diamond",
-            DotShape::Line    => "Line",
+            DotShape::Line => "Line",
         }
     }
 }
@@ -188,7 +193,8 @@ fn halftone_cmyk(src: &DynamicImage, params: &HalftoneParams) -> DynamicImage {
             let b = (if in_dot[2] { 0.0f32 } else { 1.0 }) * (1.0 - k);
 
             out.put_pixel(
-                x, y,
+                x,
+                y,
                 image::Rgb([(r * 255.0) as u8, (g * 255.0) as u8, (b * 255.0) as u8]),
             );
         }
@@ -203,10 +209,10 @@ fn halftone_cmyk(src: &DynamicImage, params: &HalftoneParams) -> DynamicImage {
 #[inline]
 fn dot_metric(dx: f32, dy: f32, shape: &DotShape) -> f32 {
     match shape {
-        DotShape::Circle  => (dx * dx + dy * dy).sqrt(),
-        DotShape::Square  => dx.abs().max(dy.abs()),
+        DotShape::Circle => (dx * dx + dy * dy).sqrt(),
+        DotShape::Square => dx.abs().max(dy.abs()),
         DotShape::Diamond => (dx.abs() + dy.abs()) * std::f32::consts::FRAC_1_SQRT_2,
-        DotShape::Line    => dy.abs(), // horizontal lines — width varies with coverage
+        DotShape::Line => dy.abs(), // horizontal lines — width varies with coverage
     }
 }
 
@@ -227,7 +233,11 @@ fn sample_luma_avg(img: &image::RgbImage, cx: u32, cy: u32, r: u32) -> f32 {
             count += 1;
         }
     }
-    if count == 0 { 0.5 } else { sum / count as f32 }
+    if count == 0 {
+        0.5
+    } else {
+        sum / count as f32
+    }
 }
 
 /// Average CMYK in a neighborhood around (cx, cy) with radius `r`.
@@ -243,7 +253,11 @@ fn sample_cmyk_avg(img: &image::RgbImage, cx: u32, cy: u32, r: u32) -> [f32; 4] 
     for y in y0..=y1 {
         for x in x0..=x1 {
             let p = img.get_pixel(x, y);
-            let cmyk = rgb_to_cmyk(p[0] as f32 / 255.0, p[1] as f32 / 255.0, p[2] as f32 / 255.0);
+            let cmyk = rgb_to_cmyk(
+                p[0] as f32 / 255.0,
+                p[1] as f32 / 255.0,
+                p[2] as f32 / 255.0,
+            );
             sum[0] += cmyk[0];
             sum[1] += cmyk[1];
             sum[2] += cmyk[2];
@@ -254,7 +268,12 @@ fn sample_cmyk_avg(img: &image::RgbImage, cx: u32, cy: u32, r: u32) -> [f32; 4] 
     if count == 0 {
         return [0.0; 4];
     }
-    [sum[0] / count as f32, sum[1] / count as f32, sum[2] / count as f32, sum[3] / count as f32]
+    [
+        sum[0] / count as f32,
+        sum[1] / count as f32,
+        sum[2] / count as f32,
+        sum[3] / count as f32,
+    ]
 }
 
 #[inline]

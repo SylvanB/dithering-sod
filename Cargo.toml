@@ -2,6 +2,11 @@
 name = "dithering-sod"
 version = "0.1.0"
 edition = "2021"
+description = "A desktop image-processing app for dithering, halftoning, palettes, and composable effects"
+license = "MIT"
+repository = "https://github.com/SylvanB/dithering-sod"
+keywords = ["dithering", "halftone", "image-processing", "egui"]
+categories = ["graphics", "multimedia::images"]
 
 [dependencies]
 eframe = { version = "0.29", features = ["default"] }
