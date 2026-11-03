@@ -4,7 +4,7 @@ A desktop image processing app built with Rust and [egui](https://github.com/emi
 
 ## Demo
 
-![Dithering Tool showing a Floyd-Steinberg comparison](https://github.com/SylvanB/dithering-sod/releases/download/v0.1.0/dithering-sod-clean.png)
+![Dithering Tool showing a Floyd-Steinberg comparison](assets/dithering-sod-demo.png)
 
 ## Features
 
