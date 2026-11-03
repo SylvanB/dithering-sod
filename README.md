@@ -2,6 +2,10 @@
 
 A desktop image processing app built with Rust and [egui](https://github.com/emilk/egui). Apply dithering algorithms, halftone effects, and a composable pre-processing pipeline to any image — then export the result.
 
+## Demo
+
+![Dithering Tool showing a Floyd-Steinberg comparison](https://github.com/SylvanB/dithering-sod/releases/download/v0.1.0/dithering-sod-clean.png)
+
 ## Features
 
 ### Dithering
